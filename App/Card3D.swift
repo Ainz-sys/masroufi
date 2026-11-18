@@ -28,6 +28,7 @@ struct Card3DView: UIViewRepresentable {
 
 final class CardSceneView: SCNView, UIGestureRecognizerDelegate {
     private let W: CGFloat = 3.37, H: CGFloat = 2.125, D: CGFloat = 0.05, R: CGFloat = 0.16
+    private let camNode = SCNNode()
     private let pivot = SCNNode()   // tilt (drag, sway)
     private let card = SCNNode()    // flip
     private let frontMat = SCNMaterial(), backMat = SCNMaterial()
@@ -74,9 +75,8 @@ final class CardSceneView: SCNView, UIGestureRecognizerDelegate {
 
         let cam = SCNCamera()
         cam.fieldOfView = 30
-        let camNode = SCNNode()
         camNode.camera = cam
-        camNode.position = SCNVector3(0, 0, 5.6)
+        camNode.position = SCNVector3(0, 0, 4.5)
         s.rootNode.addChildNode(camNode)
         pointOfView = camNode
 
@@ -144,6 +144,17 @@ final class CardSceneView: SCNView, UIGestureRecognizerDelegate {
             return a
         }
         return SCNAction.sequence(actions)
+    }
+
+    /// Keep the card as large as the view allows (approved design: card fills most of the stage).
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard bounds.height > 0 else { return }
+        let t = tan(15.0 * Double.pi / 180)              // half of the 30° field of view
+        let aspect = Double(bounds.width / bounds.height)
+        let fitHeight = 2.4 / (2 * t)                     // card height incl. tilt and sway
+        let fitWidth = 3.9 / (2 * t * aspect)             // card width incl. tilt and sway
+        camNode.position = SCNVector3(0, 0, Float(max(fitHeight, fitWidth)))
     }
 
     // MARK: Faces

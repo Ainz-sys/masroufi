@@ -140,14 +140,21 @@ struct DetailScreen: View {
                 .padding(.top, 14)
 
                 SectionHeader(store.t("category"))
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        Chip(icon: "plus", title: store.t("newCat"), dashed: true) { nav.sheet = .newCategory(forTx: tx.id) }
-                        ForEach(sortedCats) { k in
-                            Chip(icon: k.symbol, title: k.name(lang), selected: k.id == tx.categoryID) { store.setCategory(txID, k.id) }
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            Chip(icon: "plus", title: store.t("newCat"), dashed: true) { nav.sheet = .newCategory(forTx: tx.id) }
+                                .id("new-category")
+                            ForEach(sortedCats) { k in
+                                Chip(icon: k.symbol, title: k.name(lang), selected: k.id == tx.categoryID) { store.setCategory(txID, k.id) }
+                                    .id(k.id)
+                            }
                         }
+                        .padding(.horizontal, 18)
                     }
-                    .padding(.horizontal, 18)
+                    .onAppear {
+                        DispatchQueue.main.async { proxy.scrollTo("new-category", anchor: .leading) }
+                    }
                 }
 
                 SurfaceGroup {

@@ -507,13 +507,18 @@ struct InsightsScreen: View {
         }
         .chartXScale(domain: s.start...s.end)
         .chartYAxis(.hidden)
-        .chartXAxis {
-            AxisMarks(values: [s.start, s.end.addingTimeInterval(-86400)]) { _ in
-                AxisValueLabel(format: .dateTime.day().month(.abbreviated)).font(.alx(11)).foregroundStyle(p.label3)
+        .chartXAxis(.hidden)
+        .frame(height: 150)
+        .overlay(alignment: .bottom) {
+            HStack {
+                Text(Fmt.short(s.start, store.lang))
+                Spacer()
+                Text(Fmt.short(s.end.addingTimeInterval(-86400), store.lang))
             }
+            .font(.alx(12)).foregroundStyle(p.label3)
+            .offset(y: 20)
         }
-        .frame(height: 160)
-        .padding(.horizontal, 12).padding(.vertical, 14)
+        .padding(.horizontal, 12).padding(.top, 14).padding(.bottom, 30)
         .background(p.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .padding(.horizontal, 18)
     }
