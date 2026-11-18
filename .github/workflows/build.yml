@@ -3,7 +3,10 @@
 name: Build Masroufi
 on:
   push:
+    branches: [main]
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: macos-15
@@ -39,3 +42,9 @@ jobs:
         with:
           name: Masroufi-ipa
           path: Masroufi.ipa
+      - name: Publish Masroufi.ipa on the "ipa" branch
+        run: |
+          mkdir _out && cp Masroufi.ipa _out/ && cd _out
+          git init -q -b ipa && git add Masroufi.ipa
+          git -c user.name="github-actions" -c user.email="actions@github.com" commit -qm "Masroufi.ipa from ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ipa
