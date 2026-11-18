@@ -4,7 +4,7 @@ options:
   bundleIdPrefix: com.masroufi
   deploymentTarget:
     iOS: "17.0"
-  developmentLanguage: ar
+  developmentLanguage: en
 settings:
   base:
     SWIFT_VERSION: "5.0"
@@ -19,10 +19,10 @@ targets:
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: مصروفي
+        CFBundleDisplayName: Masroufi
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        CFBundleDevelopmentRegion: ar
+        CFBundleDevelopmentRegion: en
         CFBundleLocalizations: [ar, en]
         AppGroupID: group.com.masroufi.app
         UILaunchScreen: {}
@@ -47,7 +47,7 @@ targets:
     info:
       path: Widget/Info.plist
       properties:
-        CFBundleDisplayName: مصروفي
+        CFBundleDisplayName: Masroufi Widget
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         AppGroupID: group.com.masroufi.app
