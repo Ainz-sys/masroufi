@@ -15,6 +15,8 @@ struct ParsedSMS {
     var hasTime: Bool
     var bank: String
     var normalized: String
+    /// What was read (merchant, card, account, date, amounts) as ranges in `normalized`, for highlighting.
+    var marks: [NSRange] = []
 }
 
 // MARK: - Regex helpers
@@ -140,6 +142,8 @@ enum SMSParser {
     static func cleanMerchant(_ input: String) -> String {
         var m = input.trimmingCharacters(in: CharacterSet(charactersIn: " :–-\t"))
         m = rx(#"\s{2,}"#).replace(m, with: " ")
+        m = rx(#"\s*\+\d[\d\s-]{5,}\d"#).replace(m, with: "")      // billing phone numbers, e.g. "Twitch +14254770700"
+        m = rx(#"\s+\d{7,}"#).replace(m, with: "")                    // long reference numbers
         m = trailRE.replace(m, with: "")
         m = rx(#"\s+-\s+"#).replace(m, with: " · ")
         m = m.replacingOccurrences(of: "*", with: " ")
@@ -226,14 +230,22 @@ enum SMSParser {
         if debitTxRE.test(s) { kind = .debit }
 
         var merchant = ""
-        let pools = [ns.substring(from: main.end), s]
-        outer: for pool in pools {
+        var merchantRange: NSRange? = nil
+        let pools: [(String, Int)] = [(ns.substring(from: main.end), main.end), (s, 0)]
+        outer: for (pool, offset) in pools {
             let lists = latin3RE.test(pool) ? [merchantEN, merchantAR] : [merchantAR, merchantEN]
             for list in lists {
                 for r in list {
                     if let mm = r.first(pool), let g = group(mm, 1, in: pool) {
                         let t = g.trimmingCharacters(in: .whitespaces)
-                        if !badStartRE.test(t) && t.count >= 2 { merchant = g; break outer }
+                        if !badStartRE.test(t) && t.count >= 2 {
+                            merchant = g
+                            let r = mm.range(at: 1)
+                            let lead = (g as NSString).length - (g.replacingOccurrences(of: #"^\s+"#, with: "", options: .regularExpression) as NSString).length
+                            let body = (t as NSString).length
+                            merchantRange = NSRange(location: offset + r.location + lead, length: body)
+                            break outer
+                        }
                     }
                 }
             }
@@ -241,16 +253,23 @@ enum SMSParser {
         if merchant.isEmpty && atmRE.test(s) { merchant = "ATM" }
         merchant = cleanMerchant(merchant)
 
-        let card = cardRE.first(s).flatMap { group($0, 1, in: s) } ?? ""
-        let account = accountRE.first(s).flatMap { group($0, 1, in: s) } ?? ""
+        let cardM = cardRE.first(s), accountM = accountRE.first(s)
+        let card = cardM.flatMap { group($0, 1, in: s) } ?? ""
+        let account = accountM.flatMap { group($0, 1, in: s) } ?? ""
         let balance = pairs.first { $0.isBal }?.val
         let date = findDate(s)
         var bank = ""
         for (r, name) in banks where r.test(s) { bank = name; break }
+        var marks: [NSRange] = pairs.map { NSRange(location: $0.at, length: $0.end - $0.at) }
+        if let r = merchantRange { marks.append(r) }
+        if let m = cardM { marks.append(m.range) }
+        if let m = accountM { marks.append(m.range) }
+        if let m = dateRE.first(s) ?? isoDateRE.first(s) { marks.append(m.range) }
 
         return ParsedSMS(kind: kind, amount: main.val, currency: main.cur, amountHome: (amountHome * 100).rounded() / 100,
                          merchant: merchant, merchantKey: merchantKey(merchant), card: card, account: account,
-                         balance: balance, date: date?.0, hasTime: date?.1 ?? false, bank: bank, normalized: s)
+                         balance: balance, date: date?.0, hasTime: date?.1 ?? false, bank: bank, normalized: s,
+                         marks: marks.sorted { $0.location < $1.location })
     }
 
     /// Splits pasted text that may contain several messages.
@@ -280,8 +299,8 @@ enum SMSParser {
         ("bills", rx(#"OOREDOO|VODAFONE|KAHRAMAA|QATAR\s*COOL|BILL|TELECOM|INTERNET|فاتورة|كهرماء|اوريدو|أوريدو|فودافون"#)),
         ("health", rx(#"PHARMACY|PHARMA|CLINIC|HOSPITAL|\bHMC\b|MEDICAL|DENTAL|ASTER|صيدلية|عيادة|مستشفى"#)),
         ("travel", rx(#"QATAR\s*AIRWAYS|AIRWAYS|AIRLINE|BOOKING\.COM|AGODA|EXPEDIA|HOTEL|AIRBNB|FLYDUBAI|FLYNAS|سفر|فندق|طيران"#)),
-        ("entertainment", rx(#"NETFLIX|SPOTIFY|\bOSN\b|SHAHID|YOUTUBE|PLAYSTATION|STEAM|XBOX|CINEMA|NOVO|\bVOX\b|APPLE\.COM|ITUNES|GOOGLE\s*\*|ANGHAMI|ترفيه|سينما"#)),
-        ("shopping", rx(#"AMAZON|NOON|SHEIN|NAMSHI|IKEA|H\s*&\s*M|ZARA|CENTREPOINT|\bMAX\b|MALL|VILLAGGIO|LANDMARK|APPLE\s*STORE|VIRGIN|JARIR|تسوق|مول"#)),
+        ("entertainment", rx(#"NETFLIX|SPOTIFY|TWITCH|DISCORD|DISNEY|PRIME\s*VIDEO|APPLE\s*MUSIC|\bTOD\b|BEIN|\bOSN\b|SHAHID|YOUTUBE|PLAYSTATION|STEAM|XBOX|CINEMA|NOVO|\bVOX\b|APPLE\.COM|ITUNES|GOOGLE\s*\*|ANGHAMI|ترفيه|سينما"#)),
+        ("shopping", rx(#"AMAZON|ALIEXPRESS|TEMU|NOON|SHEIN|NAMSHI|IKEA|H\s*&\s*M|ZARA|CENTREPOINT|\bMAX\b|MALL|VILLAGGIO|LANDMARK|APPLE\s*STORE|VIRGIN|JARIR|تسوق|مول"#)),
         ("education", rx(#"SCHOOL|UNIVERSITY|ACADEMY|COLLEGE|COURSE|UDEMY|COURSERA|مدرسة|جامعة|أكاديمية"#)),
         ("cash", rx(#"^ATM$|\bATM\b|CASH\s*WITHDRAWAL|سحب\s+نقدي|صراف"#)),
         ("transfer", rx(#"TRANSFER|FAWRAN|IBAN|تحويل|حوالة|فوران"#)),

@@ -25,7 +25,9 @@ targets:
         CFBundleDevelopmentRegion: en
         CFBundleLocalizations: [ar, en]
         AppGroupID: group.com.masroufi.app
+        UIAppFonts: [Alexandria-Light.ttf, Alexandria-Regular.ttf, Alexandria-Medium.ttf, Alexandria-SemiBold.ttf, Alexandria-Bold.ttf]
         UILaunchScreen: {}
+        UIUserInterfaceStyle: Dark
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
@@ -51,6 +53,7 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         AppGroupID: group.com.masroufi.app
+        UIAppFonts: [Alexandria-Light.ttf, Alexandria-Regular.ttf, Alexandria-Medium.ttf, Alexandria-SemiBold.ttf, Alexandria-Bold.ttf]
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:

@@ -1,5 +1,6 @@
-# Builds مصروفي on GitHub's free macOS machines (no Mac needed) and produces Masroufi.ipa.
-# Works with the project files committed directly, or with Masroufi.zip uploaded to the repository root.
+# Builds مصروفي on GitHub's macOS machines (no Mac needed).
+#  • build: Masroufi.ipa, published on the "ipa" branch (build log on the "logs" branch if it fails)
+#  • shots: when the commit message contains [shots], runs the app in an iPhone simulator and publishes screenshots on the "shots" branch
 name: Build Masroufi
 on:
   push:
@@ -12,14 +13,6 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - name: Unpack Masroufi.zip if it was uploaded
-        run: |
-          if [ -f Masroufi.zip ] && [ ! -f project.yml ]; then
-            unzip -q Masroufi.zip -d _src
-            SRC=$(dirname "$(find _src -maxdepth 3 -name project.yml | head -1)")
-            cp -R "$SRC"/. .
-          fi
-          test -f project.yml
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
@@ -30,21 +23,75 @@ jobs:
           set -o pipefail
           xcodebuild -project Masroufi.xcodeproj -scheme Masroufi -configuration Release \
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build | tail -n 200
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build 2>&1 | tee build.log | tail -n 40
       - name: Package Masroufi.ipa
         run: |
           APP=build/Build/Products/Release-iphoneos/Masroufi.app
-          # Ad-hoc signature that carries the App Group entitlement; the sideloading tool re-signs with your Apple ID.
           codesign --force --sign - --entitlements Widget/MasroufiWidget.entitlements "$APP/PlugIns/MasroufiWidget.appex"
           codesign --force --sign - --entitlements App/Masroufi.entitlements "$APP"
           mkdir -p Payload && cp -R "$APP" Payload/ && zip -qry Masroufi.ipa Payload
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Masroufi-ipa
-          path: Masroufi.ipa
       - name: Publish Masroufi.ipa on the "ipa" branch
         run: |
           mkdir _out && cp Masroufi.ipa _out/ && cd _out
           git init -q -b ipa && git add Masroufi.ipa
           git -c user.name="github-actions" -c user.email="actions@github.com" commit -qm "Masroufi.ipa from ${GITHUB_SHA::7}"
           git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ipa
+      - name: Publish the build log on the "logs" branch
+        if: failure()
+        run: |
+          mkdir -p _log
+          { grep -E "error:|: error" build.log | sort -u | head -150; echo "-----"; tail -n 120 build.log; } > _log/build.log 2>/dev/null || true
+          cd _log && git init -q -b logs && git add -A
+          git -c user.name="github-actions" -c user.email="actions@github.com" commit -qm "build log ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" logs
+
+  shots:
+    if: contains(github.event.head_commit.message, '[shots]') || github.event_name == 'workflow_dispatch'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate the Xcode project
+        run: brew install xcodegen && xcodegen generate
+      - name: Pick and boot an iPhone simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          found = [(rt, d) for rt, ds in devices.items() if "iOS" in rt for d in ds
+                   if d["name"].startswith("iPhone") and "Pro" in d["name"] and "Max" not in d["name"]]
+          found.sort(key=lambda t: t[0])
+          print(found[-1][1]["udid"])')
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID" || true
+      - name: Build for the simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project Masroufi.xcodeproj -scheme Masroufi -configuration Debug -destination "id=$UDID" \
+            -derivedDataPath simbuild CODE_SIGNING_ALLOWED=NO build 2>&1 | tee sim.log | tail -n 30
+      - name: Take screenshots
+        run: |
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl ui "$UDID" appearance dark
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
+          xcrun simctl install "$UDID" simbuild/Build/Products/Debug-iphonesimulator/Masroufi.app
+          mkdir -p shots
+          shoot() {
+            xcrun simctl terminate "$UDID" com.masroufi.app >/dev/null 2>&1 || true
+            xcrun simctl launch "$UDID" com.masroufi.app -masroufiDemo "$1" -masroufiLang "$2" -masroufiBG "$3" >/dev/null
+            sleep 5
+            xcrun simctl io "$UDID" screenshot "shots/$4.png" >/dev/null
+          }
+          for s in ob0 ob1 ob2 ob3 ob4 ob5 today today-empty txs insights settings detail add add-paste newcat budget guide categories; do
+            shoot "$s" ar wine "$s"
+          done
+          shoot today en navy en-today
+          shoot insights en graphite en-insights
+          shoot settings ar graphite graphite-settings
+      - name: Publish screenshots on the "shots" branch
+        if: always()
+        run: |
+          mkdir -p shots
+          { grep -E "error:|: error" sim.log | sort -u | head -100; echo "-----"; tail -n 60 sim.log; } > shots/sim.log 2>/dev/null || true
+          cd shots && git init -q -b shots && git add -A
+          git -c user.name="github-actions" -c user.email="actions@github.com" commit -qm "screenshots ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" shots

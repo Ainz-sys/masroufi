@@ -35,29 +35,62 @@ struct Category: Codable, Identifiable, Hashable {
     var id: String
     var nameAR: String
     var nameEN: String
+    /// Name of the 3D icon (asset "i3d-<symbol>").
     var symbol: String
+    var color: String = "#A19DA8"
     var monthlyBudget: Double? = nil
     var alertAt80: Bool = true
     var builtIn: Bool = false
 
+    init(id: String, nameAR: String, nameEN: String, symbol: String, color: String = "#A19DA8", monthlyBudget: Double? = nil,
+         alertAt80: Bool = true, builtIn: Bool = false) {
+        self.id = id; self.nameAR = nameAR; self.nameEN = nameEN; self.symbol = symbol; self.color = color
+        self.monthlyBudget = monthlyBudget; self.alertAt80 = alertAt80; self.builtIn = builtIn
+    }
+
+    init(from decoder: Decoder) throws { // also migrates the first version, which stored SF Symbol names
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        nameAR = try c.decodeIfPresent(String.self, forKey: .nameAR) ?? id
+        nameEN = try c.decodeIfPresent(String.self, forKey: .nameEN) ?? id
+        let raw = try c.decodeIfPresent(String.self, forKey: .symbol) ?? "other"
+        symbol = Category.legacySymbols[raw] ?? raw
+        let fallback = Category.defaults.first { $0.id == id }
+        color = try c.decodeIfPresent(String.self, forKey: .color) ?? fallback?.color ?? "#A19DA8"
+        monthlyBudget = try c.decodeIfPresent(Double.self, forKey: .monthlyBudget)
+        alertAt80 = try c.decodeIfPresent(Bool.self, forKey: .alertAt80) ?? true
+        builtIn = try c.decodeIfPresent(Bool.self, forKey: .builtIn) ?? false
+    }
+
     func name(_ lang: Lang) -> String { lang == .ar ? nameAR : nameEN }
 
     static let defaults: [Category] = {
-        let raw: [(String, String, String, String)] = [
-        ("fuel", "وقود", "Fuel", "fuelpump"), ("grocery", "بقالة", "Groceries", "cart"), ("food", "مطاعم", "Restaurants", "fork.knife"),
-        ("coffee", "مقاهي", "Coffee", "cup.and.saucer"), ("transport", "مواصلات", "Transport", "car"), ("shopping", "تسوّق", "Shopping", "bag"),
-        ("bills", "فواتير واتصالات", "Bills", "phone"), ("health", "صحة", "Health", "cross.case"), ("travel", "سفر", "Travel", "airplane"),
-        ("entertainment", "ترفيه", "Entertainment", "gamecontroller"), ("education", "تعليم", "Education", "graduationcap"),
-        ("kids", "أطفال", "Kids", "figure.and.child.holdinghands"), ("home", "البيت", "Home", "house"), ("gifts", "هدايا", "Gifts", "gift"),
-        ("cash", "سحب نقدي", "Cash", "banknote"), ("transfer", "تحويلات", "Transfers", "arrow.left.arrow.right"),
-        ("income", "دخل", "Income", "arrow.down.circle"), ("other", "أخرى", "Other", "square.grid.2x2"),
+        let raw: [(String, String, String, String, String)] = [
+            ("fuel", "وقود", "Fuel", "fuel", "#F2A93B"), ("grocery", "بقالة", "Groceries", "grocery", "#34C38F"),
+            ("food", "مطاعم", "Restaurants", "food", "#FF7E67"), ("coffee", "مقاهي", "Coffee", "coffee", "#C8925A"),
+            ("transport", "مواصلات", "Transport", "car", "#4D9CFF"), ("shopping", "تسوّق", "Shopping", "shopping", "#B57CFF"),
+            ("bills", "فواتير واتصالات", "Bills", "phone", "#5BC0EB"), ("health", "صحة", "Health", "health", "#FF6B8B"),
+            ("travel", "سفر", "Travel", "travel", "#6EA8FE"), ("entertainment", "ترفيه", "Entertainment", "games", "#9D7BFF"),
+            ("education", "تعليم", "Education", "edu", "#F7BC5C"), ("kids", "أطفال", "Kids", "kids", "#FFB3C7"),
+            ("home", "البيت", "Home", "home", "#E8A87C"), ("gifts", "هدايا", "Gifts", "gift", "#FF8FA3"),
+            ("cash", "سحب نقدي", "Cash", "cash", "#5DD39E"), ("transfer", "تحويلات", "Transfers", "transfer", "#7FB7FF"),
+            ("income", "دخل", "Income", "budget", "#5DD39E"), ("other", "أخرى", "Other", "other", "#A19DA8"),
         ]
-        return raw.map { Category(id: $0.0, nameAR: $0.1, nameEN: $0.2, symbol: $0.3, builtIn: true) }
+        return raw.map { Category(id: $0.0, nameAR: $0.1, nameEN: $0.2, symbol: $0.3, color: $0.4, builtIn: true) }
     }()
 
-    static let symbolChoices = ["cart", "fork.knife", "cup.and.saucer", "car", "bag", "phone", "cross.case", "airplane", "gamecontroller",
-                                "graduationcap", "house", "gift", "banknote", "dumbbell", "pawprint", "tshirt", "book", "wrench.and.screwdriver",
-                                "heart", "star", "creditcard", "building.columns", "leaf", "music.note"]
+    static let symbolChoices = ["gym", "gift", "edu", "travel", "health", "home", "kids", "clothes", "games", "phone", "car", "coffee",
+                                "food", "grocery", "fuel", "shopping", "taxi", "cash", "bank", "receipt", "bulb", "calendar", "cloud", "palette"]
+    static let colorChoices = ["#CB2A5C", "#E8CB94", "#2BB389", "#3B82F6", "#8B5CF6", "#7C8798"]
+
+    static let legacySymbols: [String: String] = [
+        "fuelpump": "fuel", "cart": "grocery", "fork.knife": "food", "cup.and.saucer": "coffee", "bag": "shopping",
+        "cross.case": "health", "airplane": "travel", "gamecontroller": "games", "graduationcap": "edu",
+        "figure.and.child.holdinghands": "kids", "house": "home", "banknote": "cash", "arrow.left.arrow.right": "transfer",
+        "arrow.down.circle": "budget", "square.grid.2x2": "other", "star": "other", "dumbbell": "gym", "pawprint": "other",
+        "tshirt": "clothes", "book": "edu", "wrench.and.screwdriver": "home", "heart": "health", "creditcard": "bank",
+        "building.columns": "bank", "leaf": "other", "music.note": "games",
+    ]
 }
 
 struct Settings: Codable {
@@ -68,6 +101,7 @@ struct Settings: Codable {
     var alert100: Bool = true
     var notifyEach: Bool = true
     var onboarded: Bool = false
+    var background: String = "wine"
 
     init() {}
     init(from decoder: Decoder) throws { // tolerant of missing keys from older versions
@@ -79,6 +113,7 @@ struct Settings: Codable {
         alert100 = try c.decodeIfPresent(Bool.self, forKey: .alert100) ?? true
         notifyEach = try c.decodeIfPresent(Bool.self, forKey: .notifyEach) ?? true
         onboarded = try c.decodeIfPresent(Bool.self, forKey: .onboarded) ?? false
+        background = try c.decodeIfPresent(String.self, forKey: .background) ?? "wine"
     }
 }
 

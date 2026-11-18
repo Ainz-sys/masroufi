@@ -15,8 +15,6 @@ struct MasroufiApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(store)
-                .environment(\.layoutDirection, store.lang == .ar ? .rightToLeft : .leftToRight)
-                .environment(\.locale, Locale(identifier: store.lang == .ar ? "ar" : "en"))
         }
         .onChange(of: phase) { _, p in if p == .active { store.reload() } }
     }
@@ -37,13 +35,26 @@ final class Store: ObservableObject {
     static let shared = Store()
     @Published private(set) var data: AppData
 
-    private init() { data = Persistence.load() }
+    private init() { data = Demo.active ? Demo.data() : Persistence.load() }
 
     var lang: Lang { data.settings.language }
+    var palette: Palette { Palette.named(data.settings.background) }
     func t(_ key: String, _ vars: [String: String] = [:]) -> String { L10n.t(key, lang, vars) }
-    func reload() { data = Persistence.load() }
+    func reload() { if !Demo.active { data = Persistence.load() } }
+
+    /// Text for the 3D card: today's spending on the front, this cycle on the back.
+    func cardInfo() -> CardInfo {
+        let today = Ledger.today(data)
+        let cy = Ledger.cycle(salaryDay: data.settings.salaryDay)
+        let spent = Ledger.spent(data, from: cy.start, to: cy.end)
+        let days = max(1, (Calendar.current.dateComponents([.day], from: cy.start, to: min(Date(), cy.end)).day ?? 0) + 1)
+        let digits = data.transactions.sorted { $0.date > $1.date }.first { !$0.card.isEmpty }?.card ?? "••"
+        return CardInfo(label: t("spentToday"), amount: Fmt.m(today.spent), currency: t("cur"), digits: digits, rtl: lang == .ar,
+                        backTitle1: t("thisCycle"), backValue1: Fmt.m(spent), backTitle2: t("dailyAvg"), backValue2: Fmt.m(spent / Double(days)))
+    }
 
     func update(_ change: (inout AppData) -> Void) {
+        if Demo.active { var d = data; change(&d); data = d; return }
         var d = Persistence.load() // merge with anything the Shortcuts action saved meanwhile
         if d.transactions.count < data.transactions.count { d = data }
         change(&d)
