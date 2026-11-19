@@ -35,7 +35,12 @@ final class Store: ObservableObject {
     static let shared = Store()
     @Published private(set) var data: AppData
 
-    private init() { data = Demo.active ? Demo.data() : Persistence.load() }
+    private init() {
+        if Demo.active { data = Demo.data(); return }
+        var d = Persistence.load()
+        if Ledger.repair(&d) { Persistence.save(d) }
+        data = d
+    }
 
     var lang: Lang { data.settings.language }
     var palette: Palette { Palette.named(data.settings.background) }
@@ -47,7 +52,8 @@ final class Store: ObservableObject {
         let today = Ledger.today(data)
         let cy = Ledger.cycle(salaryDay: data.settings.salaryDay)
         let spent = Ledger.spent(data, from: cy.start, to: cy.end)
-        let days = max(1, (Calendar.current.dateComponents([.day], from: cy.start, to: min(Date(), cy.end)).day ?? 0) + 1)
+        let from = Ledger.trackingStart(data, cycleStart: cy.start)
+        let days = max(1, (Calendar.current.dateComponents([.day], from: from, to: min(Date(), cy.end)).day ?? 0) + 1)
         let digits = data.transactions.sorted { $0.date > $1.date }.first { !$0.card.isEmpty }?.card ?? "••"
         return CardInfo(label: t("spentToday"), amount: Fmt.m(today.spent), currency: t("cur"), digits: digits, rtl: lang == .ar,
                         backTitle1: t("thisCycle"), backValue1: Fmt.m(spent), backTitle2: t("dailyAvg"), backValue2: Fmt.m(spent / Double(days)))

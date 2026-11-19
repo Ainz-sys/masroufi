@@ -337,6 +337,31 @@ enum Ledger {
         return out
     }
 
+    /// The day tracking really started: the cycle start, or the first transaction if that is later.
+    static func trackingStart(_ d: AppData, cycleStart: Date) -> Date {
+        guard let first = d.transactions.map(\.date).min() else { return cycleStart }
+        return max(cycleStart, cal.startOfDay(for: first))
+    }
+
+    /// Re-cleans transactions saved by older versions (merchant names, categories). Returns true if anything changed.
+    static func repair(_ d: inout AppData) -> Bool {
+        var changed = false
+        for i in d.transactions.indices {
+            let old = d.transactions[i]
+            let clean = SMSParser.cleanMerchant(old.merchant)
+            if clean != old.merchant {
+                d.transactions[i].merchant = clean
+                d.transactions[i].merchantKey = SMSParser.merchantKey(clean)
+                changed = true
+            }
+            if old.categoryID == "other", old.source == .sms, d.merchantMap[d.transactions[i].merchantKey] == nil {
+                let guess = SMSParser.categorize(merchant: clean, context: SMSParser.normalize(old.raw))
+                if guess != "other", d.categories.contains(where: { $0.id == guess }) { d.transactions[i].categoryID = guess; changed = true }
+            }
+        }
+        return changed
+    }
+
     static func key(_ d: Date) -> String {
         let c = cal.dateComponents([.year, .month, .day], from: d)
         return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)

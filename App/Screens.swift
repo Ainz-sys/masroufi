@@ -354,7 +354,7 @@ struct InsightsScreen: View {
     @Environment(\.palette) private var p
 
     struct Stats {
-        var start = Date(), end = Date(), days = 30
+        var start = Date(), cycleStart = Date(), end = Date(), days = 30
         var spent = 0.0, budget = 0.0, avg = 0.0, projected = 0.0, income = 0.0
         var delta: Double? = nil
         var perDay: [DayValue] = []
@@ -366,18 +366,21 @@ struct InsightsScreen: View {
         let d = store.data, cal = Calendar.current, now = Date()
         let cy = Ledger.cycle(salaryDay: d.settings.salaryDay, ref: now)
         var s = Stats()
-        s.start = cy.start; s.end = cy.end; s.days = cy.days
+        s.start = cy.start; s.cycleStart = cy.start; s.end = cy.end; s.days = cy.days
         s.spent = Ledger.spent(d, from: cy.start, to: cy.end)
         s.budget = d.settings.dailyBudget * Double(cy.days)
-        let elapsed = max(1, (cal.dateComponents([.day], from: cy.start, to: min(now, cy.end)).day ?? 0) + 1)
+        let from = Ledger.trackingStart(d, cycleStart: cy.start)
+        let elapsed = max(1, (cal.dateComponents([.day], from: from, to: min(now, cy.end)).day ?? 0) + 1)
+        let remainingDays = max(0, cal.dateComponents([.day], from: cal.startOfDay(for: now), to: cy.end).day ?? 0) - 1
         s.avg = s.spent / Double(elapsed)
-        s.projected = s.avg * Double(cy.days)
+        s.projected = s.spent + s.avg * Double(max(0, remainingDays))
+        s.start = from
         s.income = d.transactions.filter { $0.kind == .credit && !$0.excluded && $0.date >= cy.start && $0.date < cy.end }.reduce(0) { $0 + $1.amountHome }
         let prev = Ledger.cycle(salaryDay: d.settings.salaryDay, ref: cal.date(byAdding: .day, value: -1, to: cy.start) ?? cy.start)
         let prevSpent = Ledger.spent(d, from: prev.start, to: prev.start.addingTimeInterval(min(now, cy.end).timeIntervalSince(cy.start)))
         s.delta = prevSpent > 0 ? (s.spent - prevSpent) / prevSpent : nil
         s.perDay = (0..<cy.days).compactMap { (i: Int) -> DayValue? in
-            guard let day = cal.date(byAdding: .day, value: i, to: cy.start), day <= now else { return nil }
+            guard let day = cal.date(byAdding: .day, value: i, to: from), day <= now, day < cy.end else { return nil }
             let b = Ledger.dayBounds(day)
             return DayValue(day: day, value: Ledger.spent(d, from: b.start, to: b.end))
         }
@@ -397,7 +400,7 @@ struct InsightsScreen: View {
         let lang = store.lang
         ScrollView {
             VStack(spacing: 0) {
-                TopBar(title: store.t("insights"), subtitle: store.t("cycle") + ": " + Fmt.short(s.start, lang) + " – " + Fmt.short(s.end.addingTimeInterval(-86400), lang)) { EmptyView() }
+                TopBar(title: store.t("insights"), subtitle: store.t("cycle") + ": " + Fmt.short(s.cycleStart, lang) + " – " + Fmt.short(s.end.addingTimeInterval(-86400), lang)) { EmptyView() }
                 if store.data.transactions.isEmpty {
                     EmptyCard(icon: "chart", title: store.t("noData"), text: store.t("noTodayP"))
                 } else {
