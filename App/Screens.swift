@@ -171,9 +171,10 @@ struct RemainingPanel: View {
                     .padding(.top, 2)
                 ProgressBar(fraction: month.fraction).padding(.top, 12)
                 HStack(spacing: 8) {
-                    Text(store.t("spent") + " ") + Text(Fmt.m(month.spent)).foregroundColor(p.label).font(.alx(15, .semibold)) + Text(" " + store.t("cur"))
+                    (Text(store.t("spent") + " ") + Text(Fmt.m(month.spent)).foregroundColor(p.label).font(.alx(15, .semibold)) + Text(" " + store.t("cur")))
+                        .lineLimit(1).minimumScaleFactor(0.7)
                     Spacer(minLength: 4)
-                    pill
+                    pill.layoutPriority(1)
                 }
                 .font(.alx(14.5)).foregroundStyle(p.label2)
                 .padding(.top, 10)

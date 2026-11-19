@@ -9,7 +9,7 @@ struct OnboardingFlow: View {
     @State private var forward = true
     @State private var sample = Demo.obStep == 1 ? (Demo.pasteText ?? "") : ""
     @State private var added = false
-    @State private var budgetText = "300"
+    @State private var budgetText = ""   // the person types their own monthly figure (or taps a preset)
     @State private var showSalary = false
     @FocusState private var focused: Bool
 

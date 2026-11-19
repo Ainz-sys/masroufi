@@ -231,11 +231,12 @@ struct StatusPill: View {
         let color: Color = kind == .ok ? Tok.positive : kind == .warn ? Tok.warning : Tok.danger
         HStack(spacing: 6) {
             Icon3D(name: kind == .ok ? "check" : "bell", size: 18)
-            Text(text).font(.alx(13, .semibold, relativeTo: .caption)).lineLimit(1)
+            Text(text).font(.alx(13, .semibold, relativeTo: .caption)).lineLimit(1).minimumScaleFactor(0.75)
         }
         .foregroundStyle(color)
         .padding(.horizontal, 12)
-        .frame(height: 30)
+        .frame(minHeight: 30)
+        .fixedSize(horizontal: false, vertical: true)
         .background(color.opacity(0.15), in: Capsule())
     }
 }

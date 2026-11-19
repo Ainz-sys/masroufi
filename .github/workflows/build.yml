@@ -72,6 +72,10 @@ jobs:
             xcrun simctl ui "$1" appearance dark
             xcrun simctl status_bar "$1" override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
             xcrun simctl install "$1" "$APP"
+            # warm-up launch: a freshly booted simulator renders its first frames slowly
+            xcrun simctl launch "$1" com.masroufi.app -masroufiDemo today -masroufiLang ar -masroufiBG wine >/dev/null 2>&1 || true
+            sleep 15
+            xcrun simctl terminate "$1" com.masroufi.app >/dev/null 2>&1 || true
           }
           shoot() { # udid screen lang bg file [card pose "flip,yaw,pitch,scale"]
             xcrun simctl terminate "$1" com.masroufi.app >/dev/null 2>&1 || true

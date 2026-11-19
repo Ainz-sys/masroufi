@@ -127,18 +127,17 @@ final class CardSceneView: SCNView, UIGestureRecognizerDelegate {
 
         if reduceMotion {
             pivot.eulerAngles = base
-        } else { // intro: fades in and turns into place, then a gentle sway that settles (stays inside the stage)
-            pivot.opacity = 0
+        } else { // intro: grows and turns into place, then a gentle sway that settles (stays inside the stage).
+                 // Fully visible from the first frame, so a slow first render never leaves the stage empty.
             pivot.scale = SCNVector3(0.92, 0.92, 0.92)
             pivot.eulerAngles = SCNVector3(base.x, base.y - 0.3, base.z)
-            let intro = SCNAction.group([SCNAction.fadeIn(duration: 0.35),
-                                         SCNAction.scale(to: 1, duration: 0.6),
+            let intro = SCNAction.group([SCNAction.scale(to: 1, duration: 0.6),
                                          SCNAction.rotateTo(x: CGFloat(base.x), y: CGFloat(base.y), z: CGFloat(base.z), duration: 0.6, usesShortestUnitArc: true)])
             intro.timingMode = .easeOut
             pivot.runAction(SCNAction.sequence([intro, sway()]), forKey: "intro")
         }
         if let pose = Demo.cardPose { // screenshot checks: a frozen pose (flip angle in degrees, optional drag)
-            pivot.removeAllActions(); pivot.opacity = 1; pivot.scale = SCNVector3(1, 1, 1)
+            pivot.removeAllActions(); pivot.scale = SCNVector3(1, 1, 1)
             pivot.eulerAngles = SCNVector3(base.x + pose.pitch, base.y + pose.yaw, base.z)
             let k = Float(pose.scale)
             card.scale = SCNVector3(k, k, k)
@@ -280,10 +279,10 @@ final class CardSceneView: SCNView, UIGestureRecognizerDelegate {
         return abs(v.x) > abs(v.y) // vertical drags keep scrolling the page
     }
 
-    /// Brings the card fully in (if the intro was interrupted) and back to its resting tilt.
+    /// Brings the card to full size (if the intro was interrupted) and back to its resting tilt.
     private func settle(_ duration: TimeInterval, key: String) {
         let d = reduceMotion ? 0.01 : duration
-        let back = SCNAction.group([SCNAction.fadeIn(duration: d), SCNAction.scale(to: 1, duration: d),
+        let back = SCNAction.group([SCNAction.scale(to: 1, duration: d),
                                     SCNAction.rotateTo(x: CGFloat(base.x), y: CGFloat(base.y), z: CGFloat(base.z), duration: d, usesShortestUnitArc: true)])
         back.timingMode = .easeOut
         pivot.runAction(back, forKey: key)
@@ -294,7 +293,7 @@ final class CardSceneView: SCNView, UIGestureRecognizerDelegate {
         switch g.state {
         case .began:
             pivot.removeAllActions()
-            pivot.runAction(SCNAction.group([SCNAction.fadeIn(duration: 0.15), SCNAction.scale(to: 1, duration: 0.15)]))
+            pivot.runAction(SCNAction.scale(to: 1, duration: 0.15))
         case .changed:
             // rubber band: follows the finger, then resists, never past the limits the camera was fitted for
             let yaw = Limit.yaw * tanh(Float(t.x) * 0.01 / Limit.yaw)
