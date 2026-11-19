@@ -442,6 +442,7 @@ struct FloatingTabBar: View {
         }
         .padding(4)
         .frame(height: 66)
+        .dynamicTypeSize(...DynamicTypeSize.large)
         .background(Capsule().fill(.ultraThinMaterial))
         .background(Capsule().fill(p.glass))
         .overlay(Capsule().strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5))

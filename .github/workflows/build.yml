@@ -76,7 +76,7 @@ jobs:
           shoot() { # udid screen lang bg file
             xcrun simctl terminate "$1" com.masroufi.app >/dev/null 2>&1 || true
             xcrun simctl launch "$1" com.masroufi.app -masroufiDemo "$2" -masroufiLang "$3" -masroufiBG "$4" >/dev/null
-            sleep 5
+            sleep 7
             xcrun simctl io "$1" screenshot "shots/$5.png" >/dev/null
           }
           prep "$UDID"

@@ -19,6 +19,7 @@ struct RootView: View {
         .environment(\.locale, Locale(identifier: store.lang == .ar ? "ar_QA@numbers=latn" : "en_GB"))
         .preferredColorScheme(.dark)
         .tint(Tok.tint)
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)   // grows with the user's text size, without breaking words apart
         .onAppear { Demo.apply(nav: nav) }
     }
 }
@@ -96,6 +97,7 @@ struct SheetHost: View {
         .environment(\.locale, Locale(identifier: store.lang == .ar ? "ar_QA@numbers=latn" : "en_GB"))
         .preferredColorScheme(.dark)
         .tint(Tok.tint)
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .presentationBackground(store.palette.bg)
         .presentationDragIndicator(.visible)
     }
