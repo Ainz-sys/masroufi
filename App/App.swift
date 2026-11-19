@@ -49,14 +49,12 @@ final class Store: ObservableObject {
 
     /// Text for the 3D card: today's spending on the front, this cycle on the back.
     func cardInfo() -> CardInfo {
-        let today = Ledger.today(data)
-        let cy = Ledger.cycle(salaryDay: data.settings.salaryDay)
-        let spent = Ledger.spent(data, from: cy.start, to: cy.end)
-        let from = Ledger.trackingStart(data, cycleStart: cy.start)
-        let days = max(1, (Calendar.current.dateComponents([.day], from: from, to: min(Date(), cy.end)).day ?? 0) + 1)
+        let m = Ledger.month(data)
+        let from = Ledger.trackingStart(data, cycleStart: m.start)
+        let days = max(1, (Calendar.current.dateComponents([.day], from: from, to: min(Date(), m.end)).day ?? 0) + 1)
         let digits = data.transactions.sorted { $0.date > $1.date }.first { !$0.card.isEmpty }?.card ?? "••"
-        return CardInfo(label: t("spentToday"), amount: Fmt.m(today.spent), currency: t("cur"), digits: digits, rtl: lang == .ar,
-                        backTitle1: t("thisCycle"), backValue1: Fmt.m(spent), backTitle2: t("dailyAvg"), backValue2: Fmt.m(spent / Double(days)))
+        return CardInfo(label: t("spentToday"), amount: Fmt.m(m.todaySpent), currency: t("cur"), digits: digits, rtl: lang == .ar,
+                        backTitle1: t("thisCycle"), backValue1: Fmt.m(m.spent), backTitle2: t("dailyAvg"), backValue2: Fmt.m(m.spent / Double(days)))
     }
 
     func update(_ change: (inout AppData) -> Void) {
@@ -88,11 +86,12 @@ final class Store: ObservableObject {
     }
 
     // Transactions
-    func addPasted(_ text: String) -> Int {
+    /// Older bank messages pasted in: each is dated from its own text (or `undated`), so it comes off the right month.
+    func addPasted(_ text: String, undated: Date? = nil) -> Int {
         var n = 0
         update { d in
             for (p, raw) in Ledger.parseMany(text) where !d.transactions.contains(where: { $0.raw == raw.trimmingCharacters(in: .whitespacesAndNewlines) }) {
-                d.transactions.append(Ledger.transaction(from: p, raw: raw, data: d, now: Date(), live: false)); n += 1
+                d.transactions.append(Ledger.transaction(from: p, raw: raw, data: d, now: Date(), live: false, undated: undated)); n += 1
             }
         }
         return n
@@ -175,10 +174,11 @@ enum Notifier {
         }
     }
 
-    static func todayLine(_ d: AppData) -> String {
-        let lang = d.settings.language, t = Ledger.today(d)
-        if t.budget <= 0 { return L10n.t("nSpent", lang, ["s": Fmt.m(t.spent)]) }
-        return t.remaining < 0 ? L10n.t("nOver", lang, ["o": Fmt.m(-t.remaining)]) : L10n.t("nLeft", lang, ["l": Fmt.m(t.remaining), "b": Fmt.m0(t.budget)])
+    /// "Left this month: 10,678.50 of 15,000 QAR" (or what was spent this month when there is no budget).
+    static func monthLine(_ d: AppData) -> String {
+        let lang = d.settings.language, m = Ledger.month(d)
+        if m.budget <= 0 { return L10n.t("nSpent", lang, ["s": Fmt.m(m.spent)]) }
+        return m.remaining < 0 ? L10n.t("nOver", lang, ["o": Fmt.m(-m.remaining)]) : L10n.t("nLeft", lang, ["l": Fmt.m(m.remaining), "b": Fmt.m0(m.budget)])
     }
 
     static func announce(_ r: LogResult, data d: AppData) {
@@ -190,7 +190,7 @@ enum Notifier {
             send(t0, b0 + "\n" + title)
             for a in r.alerts.dropFirst() { let (t1, b1) = alertText(a, d); send(t1, b1) }
         } else if d.settings.notifyEach {
-            send(title, (tx.merchant.isEmpty ? "" : tx.merchant + "\n") + todayLine(d))
+            send(title, (tx.merchant.isEmpty ? "" : tx.merchant + "\n") + monthLine(d))
         }
     }
 }
@@ -214,12 +214,12 @@ struct LogBankMessageIntent: AppIntent {
 }
 
 struct TodaySummaryIntent: AppIntent {
-    static var title: LocalizedStringResource = "كم باقي لي اليوم؟"
+    static var title: LocalizedStringResource = "كم باقي من ميزانيتي؟"
     static var openAppWhenRun: Bool = false
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let line = Notifier.todayLine(Persistence.load())
+        let line = Notifier.monthLine(Persistence.load())
         return .result(dialog: "\(line)")
     }
 }
@@ -228,7 +228,7 @@ struct MasroufiShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: LogBankMessageIntent(), phrases: ["سجّل رسالة البنك في \(.applicationName)", "Log a bank message in \(.applicationName)"],
                     shortTitle: "سجّل رسالة البنك", systemImageName: "message")
-        AppShortcut(intent: TodaySummaryIntent(), phrases: ["كم باقي لي اليوم في \(.applicationName)", "What's left today in \(.applicationName)"],
-                    shortTitle: "كم باقي لي اليوم؟", systemImageName: "wallet.pass")
+        AppShortcut(intent: TodaySummaryIntent(), phrases: ["كم باقي من ميزانيتي في \(.applicationName)", "What's left of my budget in \(.applicationName)"],
+                    shortTitle: "كم باقي من ميزانيتي؟", systemImageName: "wallet.pass")
     }
 }

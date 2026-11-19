@@ -3,7 +3,7 @@ import SwiftUI
 
 struct BudgetEntry: TimelineEntry {
     let date: Date
-    let today: Ledger.Today
+    let month: Ledger.Month
     let last: Transaction?
     let lastCategory: Category?
     let week: [Double]
@@ -21,12 +21,13 @@ struct BudgetProvider: TimelineProvider {
             let b = Ledger.dayBounds(day)
             return Ledger.spent(d, from: b.start, to: b.end)
         }
-        return BudgetEntry(date: now, today: Ledger.today(d, now: now), last: last, lastCategory: last.map { d.category($0.categoryID) },
+        return BudgetEntry(date: now, month: Ledger.month(d, now: now), last: last, lastCategory: last.map { d.category($0.categoryID) },
                            week: week, lang: d.settings.language, background: d.settings.background)
     }
 
     func placeholder(in context: Context) -> BudgetEntry {
-        BudgetEntry(date: Date(), today: Ledger.Today(spent: 259.25, budget: 300, remaining: 40.75, fraction: 0.86, count: 3),
+        BudgetEntry(date: Date(), month: Ledger.Month(start: Date().addingTimeInterval(-20 * 86400), end: Date().addingTimeInterval(10 * 86400),
+                                                    budget: 6000, spent: 4120.5, todaySpent: 259.25, todayCount: 3, daysLeft: 10),
                     last: nil, lastCategory: nil, week: [80, 140, 60, 200, 90, 30, 259], lang: .ar, background: "wine")
     }
 
@@ -46,20 +47,26 @@ struct BudgetWidgetView: View {
 
     var p: Palette { Palette.named(e.background) }
     func t(_ k: String, _ v: [String: String] = [:]) -> String { L10n.t(k, e.lang, v) }
-    var hasBudget: Bool { e.today.budget > 0 }
-    var over: Bool { hasBudget && e.today.remaining < 0 }
-    var headline: String { hasBudget ? (over ? t("overShort") : t("leftToday")) : t("spentToday") }
-    var value: Double { hasBudget ? abs(e.today.remaining) : e.today.spent }
+    var m: Ledger.Month { e.month }
+    var hasBudget: Bool { m.budget > 0 }
+    var over: Bool { hasBudget && m.remaining < 0 }
+    var headline: String { hasBudget ? (over ? t("overShort") : t("leftMonth")) : t("spentMonth") }
+    var value: Double { hasBudget ? abs(m.remaining) : m.spent }
     var valueText: String { abs(value) >= 1000 ? Fmt.m0(value) : Fmt.m(value) }
-    var footer: String { hasBudget ? t("spentOf", ["s": Fmt.m0(e.today.spent), "b": Fmt.m0(e.today.budget)]) : "" }
-    var ringColor: Color { !hasBudget ? Tok.gold : over ? Tok.danger : e.today.fraction >= 0.8 ? Tok.warning : Tok.tintInk }
+    var footer: String { hasBudget ? t("spentOf", ["s": Fmt.m0(m.spent), "b": Fmt.m0(m.budget)]) : "" }
+    var ringColor: Color { !hasBudget ? Tok.gold : over ? Tok.danger : m.fraction >= 0.8 ? Tok.warning : Tok.tintInk }
+    /// Even daily share of the monthly budget: days above it show in amber.
+    var pace: Double {
+        let days = max(1, Calendar.current.dateComponents([.day], from: m.start, to: m.end).day ?? 30)
+        return hasBudget ? m.budget / Double(days) : 0
+    }
 
     var body: some View {
         switch family {
         case .accessoryInline:
             Text(t("app") + ": " + (over ? t("overShort") + " " : "") + Fmt.m0(value) + " " + t("cur"))
         case .accessoryCircular:
-            Gauge(value: min(e.today.spent, max(e.today.budget, 0.01)), in: 0...max(e.today.budget, 0.01)) {
+            Gauge(value: min(m.spent, max(m.budget, 0.01)), in: 0...max(m.budget, 0.01)) {
                 Text(t("cur"))
             } currentValueLabel: {
                 Text(Fmt.m0(value)).font(.alx(15, .semibold))
@@ -76,7 +83,7 @@ struct BudgetWidgetView: View {
                 ring(118)
                 VStack(alignment: .leading, spacing: 0) {
                     Text(t("app")).font(.alx(12, .semibold)).foregroundStyle(Tok.gold)
-                    Text(hasBudget ? footer : t("spentToday")).font(.alx(13, .medium)).foregroundStyle(p.label).padding(.top, 2)
+                    Text(hasBudget ? footer : t("spentMonth")).font(.alx(13, .medium)).foregroundStyle(p.label).padding(.top, 2)
                     if let last = e.last {
                         HStack(spacing: 8) {
                             Icon3D(name: e.lastCategory?.symbol ?? "receipt", size: 26)
@@ -107,7 +114,7 @@ struct BudgetWidgetView: View {
     func ring(_ size: CGFloat) -> some View {
         ZStack {
             Circle().stroke(p.track, lineWidth: size * 0.1)
-            Circle().trim(from: 0, to: hasBudget ? min(1, e.today.fraction) : 0)
+            Circle().trim(from: 0, to: hasBudget ? min(1, m.fraction) : 0)
                 .stroke(ringColor, style: StrokeStyle(lineWidth: size * 0.1, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             VStack(spacing: 0) {
@@ -121,12 +128,12 @@ struct BudgetWidgetView: View {
     }
 
     var weekBars: some View {
-        let top = max(e.week.max() ?? 0, e.today.budget, 1)
+        let top = max(e.week.max() ?? 0, pace, 1)
         return HStack(alignment: .bottom, spacing: 5) {
             ForEach(Array(e.week.enumerated()), id: \.offset) { item in
                 let isToday = item.offset == e.week.count - 1
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(isToday ? Tok.tint : (hasBudget && item.element > e.today.budget ? Tok.warning : p.label3.opacity(0.55)))
+                    .fill(isToday ? Tok.tint : (hasBudget && item.element > pace ? Tok.warning : p.label3.opacity(0.55)))
                     .frame(height: max(3, 26 * item.element / top))
             }
         }
@@ -145,7 +152,7 @@ struct MasroufiWidget: Widget {
                 }
         }
         .configurationDisplayName("مصروفي")
-        .description("المتبقي من ميزانية اليوم · Today's remaining budget")
+        .description("المتبقي من ميزانية الشهر · What's left of this month's budget")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }

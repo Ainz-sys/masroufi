@@ -102,6 +102,8 @@ struct TopBar<Trailing: View>: View {
     @Environment(\.palette) private var p
     let title: String
     var subtitle: String? = nil
+    /// Space before the first block. Screens whose first block brings its own top margin pass less.
+    var bottom: CGFloat = 14
     @ViewBuilder var trailing: () -> Trailing
 
     var body: some View {
@@ -116,6 +118,7 @@ struct TopBar<Trailing: View>: View {
         .padding(.horizontal, 18)
         .padding(.top, 6)
         .frame(minHeight: 60)
+        .padding(.bottom, bottom)
     }
 }
 
@@ -441,7 +444,7 @@ struct FloatingTabBar: View {
             }
         }
         .padding(4)
-        .frame(height: 66)
+        .frame(height: Layout.tabBarHeight)
         .dynamicTypeSize(...DynamicTypeSize.large)
         .background(Capsule().fill(.ultraThinMaterial))
         .background(Capsule().fill(p.glass))
@@ -452,10 +455,18 @@ struct FloatingTabBar: View {
 }
 
 enum Layout {
-    /// Distance from the bottom of the screen to the floating tab bar, from the real safe area of this iPhone.
-    @MainActor static var tabBarBottom: CGFloat {
-        let inset = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }.first { $0.isKeyWindow }?.safeAreaInsets.bottom ?? 0
-        return inset > 0 ? max(12, inset - 12) : 10   // Face ID iPhones: clear the home indicator; Home-button iPhones: 10 pt
+    static let tabBarHeight: CGFloat = 66
+
+    /// The window's own safe-area insets (status bar / Dynamic Island, home indicator), as a cross-check.
+    @MainActor static var windowInsets: UIEdgeInsets {
+        let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap { $0.windows }
+        return (windows.first { $0.isKeyWindow } ?? windows.first)?.safeAreaInsets ?? .zero
+    }
+
+    /// Distance from the physical bottom of the screen to the floating tab bar.
+    /// Face ID iPhones (34 pt home-indicator inset): 21 pt, which leaves ~8 pt above the indicator, like the system bar.
+    /// Home-button iPhones (no inset): 10 pt.
+    static func tabBarGap(bottomInset: CGFloat) -> CGFloat {
+        bottomInset > 0 ? max(10, bottomInset - 13) : 10
     }
 }

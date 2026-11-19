@@ -61,7 +61,7 @@ struct OnboardingFlow: View {
                 .presentationBackground(p.bg)
                 .presentationDragIndicator(.visible)
             }
-            .onAppear { if store.data.settings.dailyBudget > 0 { budgetText = Fmt.m0(store.data.settings.dailyBudget).replacingOccurrences(of: ",", with: "") } }
+            .onAppear { if store.data.settings.monthlyBudget > 0 { budgetText = Fmt.m0(store.data.settings.monthlyBudget).replacingOccurrences(of: ",", with: "") } }
         }
     }
 
@@ -134,7 +134,7 @@ struct OnboardingFlow: View {
             case 3:
                 PrimaryButton(title: store.t("next")) {
                     let v = Double(SMSParser.normalize(budgetText).replacingOccurrences(of: ",", with: "")) ?? 0
-                    store.update { $0.settings.dailyBudget = max(0, v) }
+                    store.update { $0.settings.monthlyBudget = max(0, v); Ledger.resetMonthAlerts(&$0) }
                     go(4)
                 }
             case 4:
@@ -233,15 +233,15 @@ struct OnboardingFlow: View {
         return VStack(alignment: .leading, spacing: 0) {
             hero("budget", store.t("ob4t"), store.t("ob4p"))
             BudgetInput(text: $budgetText).focused($focused).padding(.top, 16)
-            Presets(values: [150, 200, 300, 500], text: $budgetText).padding(.top, 18)
+            Presets(values: Presets.monthly, text: $budgetText).padding(.top, 18)
             SurfaceGroup {
                 Button { focused = false; showSalary = true } label: {
                     SettingRow(icon: "calendar", title: store.t("salaryDay")) { Text("\(store.data.settings.salaryDay)") }
                 }
                 .buttonStyle(PressStyle())
                 RowDivider()
-                SettingRow(icon: "cash", title: store.t("monthBudget"), chevron: false) {
-                    Text("\u{200E}≈ " + Fmt.m0(v * Double(days)) + " " + store.t("cur"))
+                SettingRow(icon: "cash", title: store.t("perDayShare"), chevron: false) {
+                    Text("\u{200E}≈ " + Fmt.m0(v / Double(days)) + " " + store.t("cur"))
                 }
             }
             .padding(.top, 22)

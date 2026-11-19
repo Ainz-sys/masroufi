@@ -28,6 +28,7 @@ struct MainShell: View {
     @EnvironmentObject var store: Store
     @EnvironmentObject var nav: Nav
     @Environment(\.palette) private var p
+    @State private var keyboardUp = false
 
     var body: some View {
         NavigationStack(path: $nav.path) {
@@ -54,24 +55,47 @@ struct MainShell: View {
                 .toolbar(.hidden, for: .navigationBar)
             }
         }
-        .overlay(alignment: .bottom) {
-            // Pinned to the physical bottom: just above the home indicator, like the system floating tab bar.
-            if nav.path.isEmpty {
-                FloatingTabBar()
-                    .padding(.bottom, Layout.tabBarBottom)
-                    .ignoresSafeArea(.container, edges: .bottom)
-                    .ignoresSafeArea(.keyboard, edges: .bottom)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+        .overlay {
+            // Laid out on the whole screen (safe areas ignored) and placed from the real insets of this iPhone,
+            // so the bar sits just above the home indicator on every model instead of floating mid-air.
+            GeometryReader { geo in
+                let top = max(geo.safeAreaInsets.top, Layout.windowInsets.top)
+                let gap = Layout.tabBarGap(bottomInset: max(geo.safeAreaInsets.bottom, Layout.windowInsets.bottom))
+                let showBar = nav.path.isEmpty && !keyboardUp
+                ZStack {
+                    // content scrolling under the clock / Dynamic Island fades out instead of colliding with it
+                    LinearGradient(colors: [p.bg, p.bg.opacity(0.85), p.bg.opacity(0)], startPoint: .top, endPoint: .bottom)
+                        .frame(height: top + 4)
+                        .frame(maxHeight: .infinity, alignment: .top)
+                        .allowsHitTesting(false)
+                    if showBar {
+                        // and fades out behind the floating bar, so nothing shows through below it
+                        LinearGradient(stops: [.init(color: p.bg.opacity(0), location: 0), .init(color: p.bg.opacity(0.88), location: 0.55),
+                                               .init(color: p.bg, location: 1)], startPoint: .top, endPoint: .bottom)
+                            .frame(height: gap + Layout.tabBarHeight + 22)
+                            .frame(maxHeight: .infinity, alignment: .bottom)
+                            .allowsHitTesting(false)
+                            .transition(.opacity)
+                        FloatingTabBar()
+                            .padding(.bottom, gap)
+                            .frame(maxHeight: .infinity, alignment: .bottom)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                    if let t = nav.toast {
+                        Toast(text: t)
+                            .padding(.bottom, gap + Layout.tabBarHeight + 14)
+                            .frame(maxHeight: .infinity, alignment: .bottom)
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    }
+                }
+                .frame(width: geo.size.width, height: geo.size.height)
+                .animation(.easeOut(duration: 0.2), value: showBar)
             }
+            .ignoresSafeArea()
         }
-        .animation(.easeOut(duration: 0.2), value: nav.path.isEmpty)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in keyboardUp = true }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in keyboardUp = false }
         .sheet(item: $nav.sheet) { route in SheetHost(route: route) }
-        .overlay(alignment: .bottom) {
-            if let t = nav.toast {
-                Toast(text: t).padding(.bottom, Layout.tabBarBottom + 80).ignoresSafeArea(.container, edges: .bottom)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
-        }
     }
 }
 
@@ -127,40 +151,42 @@ struct BigAmount: View {
     }
 }
 
+/// What is left of this month's budget. Everything dated this month counts, including older transactions added later.
 struct RemainingPanel: View {
     @EnvironmentObject var store: Store
     @EnvironmentObject var nav: Nav
     @Environment(\.palette) private var p
-    let today: Ledger.Today
+    let month: Ledger.Month
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if today.budget > 0 {
+            if month.budget > 0 {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(store.t("remainingToday"))
+                    Text(store.t("remainingMonth"))
                     Spacer()
-                    Text(store.t("of") + " ") + Text(Fmt.m0(today.budget)).foregroundColor(p.label).font(.alx(15, .semibold)) + Text(" " + store.t("cur"))
+                    Text(store.t("of") + " ") + Text(Fmt.m0(month.budget)).foregroundColor(p.label).font(.alx(15, .semibold)) + Text(" " + store.t("cur"))
                 }
                 .font(.alx(15)).foregroundStyle(p.label2)
-                BigAmount(value: abs(today.remaining), color: today.remaining < 0 ? Tok.danger : nil, prefix: today.remaining < 0 ? "-" : "")
+                BigAmount(value: abs(month.remaining), color: month.remaining < 0 ? Tok.danger : nil, prefix: month.remaining < 0 ? "-" : "")
                     .padding(.top, 2)
-                ProgressBar(fraction: today.fraction).padding(.top, 12)
+                ProgressBar(fraction: month.fraction).padding(.top, 12)
                 HStack(spacing: 8) {
-                    Text(store.t("spent") + " ") + Text(Fmt.m(today.spent)).foregroundColor(p.label).font(.alx(15, .semibold)) + Text(" " + store.t("cur"))
+                    Text(store.t("spent") + " ") + Text(Fmt.m(month.spent)).foregroundColor(p.label).font(.alx(15, .semibold)) + Text(" " + store.t("cur"))
                     Spacer(minLength: 4)
                     pill
                 }
                 .font(.alx(14.5)).foregroundStyle(p.label2)
                 .padding(.top, 10)
+                Text(paceLine).font(.alx(13.5)).foregroundStyle(p.label3).padding(.top, 8)
             } else {
                 HStack {
-                    Text(store.t("spentToday")).font(.alx(15)).foregroundStyle(p.label2)
+                    Text(store.t("spentMonth")).font(.alx(15)).foregroundStyle(p.label2)
                     Spacer()
                     Button { nav.sheet = .budget } label: {
-                        Text(store.t("daily") + " +").font(.alx(14.5, .medium)).foregroundStyle(Tok.tintInk).frame(minHeight: 44)
+                        Text(store.t("monthly") + " +").font(.alx(14.5, .medium)).foregroundStyle(Tok.tintInk).frame(minHeight: 44)
                     }
                 }
-                BigAmount(value: today.spent)
+                BigAmount(value: month.spent)
             }
         }
         .padding(.horizontal, 18)
@@ -170,10 +196,16 @@ struct RemainingPanel: View {
         .padding(.top, 4)
     }
 
+    /// "≈ 512 ر.ق لكل يوم · باقي 7 أيام": the pace that keeps the month on budget.
+    var paceLine: String {
+        let n = L10n.days(month.daysLeft, store.lang)
+        return month.remaining > 0 ? store.t("perDayLeft", ["d": Fmt.m0(month.perDay), "n": n]) : store.t("renewsIn", ["n": n])
+    }
+
     @ViewBuilder var pill: some View {
-        if today.spent > today.budget {
-            StatusPill(kind: .over, text: store.t("over") + " " + Fmt.m(today.spent - today.budget))
-        } else if today.fraction >= 0.8 {
+        if month.spent > month.budget {
+            StatusPill(kind: .over, text: store.t("over") + " " + Fmt.m(month.spent - month.budget))
+        } else if month.fraction >= 0.8 {
             StatusPill(kind: .warn, text: store.t("near"))
         } else {
             StatusPill(kind: .ok, text: store.t("ok"))
@@ -202,15 +234,15 @@ struct TodayScreen: View {
     @Environment(\.palette) private var p
 
     var body: some View {
-        let today = Ledger.today(store.data)
+        let month = Ledger.month(store.data)
         let txs = Ledger.transactions(store.data, on: Date())
         ScrollView {
             VStack(spacing: 0) {
-                TopBar(title: store.t("today"), subtitle: Fmt.day(Date(), store.lang)) {
+                TopBar(title: store.t("today"), subtitle: Fmt.day(Date(), store.lang), bottom: 0) {
                     RoundButton(systemImage: "plus", label: store.t("addTx")) { nav.sheet = .add(paste: false) }
                 }
                 Card3DView(info: store.cardInfo()).frame(height: 200)
-                RemainingPanel(today: today)
+                RemainingPanel(month: month)
                 if store.data.lastAuto == nil {
                     Button { nav.path.append(.guide) } label: {
                         HStack(spacing: 14) {
@@ -382,7 +414,7 @@ struct InsightsScreen: View {
         var s = Stats()
         s.start = cy.start; s.cycleStart = cy.start; s.end = cy.end; s.days = cy.days
         s.spent = Ledger.spent(d, from: cy.start, to: cy.end)
-        s.budget = d.settings.dailyBudget * Double(cy.days)
+        s.budget = max(0, d.settings.monthlyBudget)
         let from = Ledger.trackingStart(d, cycleStart: cy.start)
         let elapsed = max(1, (cal.dateComponents([.day], from: from, to: min(now, cy.end)).day ?? 0) + 1)
         let remainingDays = max(0, cal.dateComponents([.day], from: cal.startOfDay(for: now), to: cy.end).day ?? 0) - 1
@@ -421,7 +453,7 @@ struct InsightsScreen: View {
                     cyclePanel(s)
                     kpis(s)
                     SectionHeader(title: store.t("perDay")) {
-                        if store.data.settings.dailyBudget > 0 { Text(store.t("budgetLine")).font(.alx(13)).foregroundStyle(p.label2) }
+                        if showPace(s) { Text(store.t("budgetLine")).font(.alx(13)).foregroundStyle(p.label2) }
                     }
                     chart(s)
                     if !s.byCategory.isEmpty {
@@ -507,8 +539,15 @@ struct InsightsScreen: View {
         .background(p.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
+    /// Even daily share of the monthly budget (the dashed line), shown only while it keeps the bars readable.
+    func pace(_ s: Stats) -> Double { s.budget > 0 ? s.budget / Double(max(1, s.days)) : 0 }
+    func showPace(_ s: Stats) -> Bool {
+        let top = s.perDay.map(\.value).max() ?? 0
+        return pace(s) > 0 && top > 0 && pace(s) <= 3 * top
+    }
+
     func chart(_ s: Stats) -> some View {
-        let budget = store.data.settings.dailyBudget
+        let budget = showPace(s) ? pace(s) : 0
         let todayStart = Calendar.current.startOfDay(for: Date())
         return Chart {
             ForEach(s.perDay) { item in
@@ -590,7 +629,7 @@ struct SettingsScreen: View {
         let st = store.data.settings
         ScrollView {
             VStack(spacing: 0) {
-                TopBar(title: store.t("settings")) { EmptyView() }
+                TopBar(title: store.t("settings"), bottom: 0) { EmptyView() }
 
                 SectionHeader(store.t("appearance"), strong: false)
                 SurfaceGroup {
@@ -619,7 +658,7 @@ struct SettingsScreen: View {
                 SectionHeader(store.t("budget"), strong: false)
                 SurfaceGroup {
                     Button { nav.sheet = .budget } label: {
-                        SettingRow(icon: "budget", title: store.t("daily")) { Text(st.dailyBudget > 0 ? "\u{200E}" + Fmt.m0(st.dailyBudget) + " " + store.t("cur") : "—") }
+                        SettingRow(icon: "budget", title: store.t("monthly")) { Text(st.monthlyBudget > 0 ? "\u{200E}" + Fmt.m0(st.monthlyBudget) + " " + store.t("cur") : "—") }
                     }
                     .buttonStyle(PressStyle())
                     RowDivider()

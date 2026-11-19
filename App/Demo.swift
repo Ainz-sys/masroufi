@@ -13,6 +13,15 @@ enum Demo {
     static var screen: String? { value("-masroufiDemo") }
     static var active: Bool { screen != nil }
 
+    /// `-masroufiCardPose "flip,yaw,pitch,scale"` freezes the 3D card in one pose, to check in a screenshot that the
+    /// widest poses are not cut off (flip in degrees; yaw/pitch are the drag offsets in radians).
+    static var cardPose: (flip: Double, yaw: Float, pitch: Float, scale: Double)? {
+        guard let v = value("-masroufiCardPose") else { return nil }
+        let n = v.split(separator: ",").compactMap { Double($0) }
+        guard n.count == 4 else { return nil }
+        return (n[0], Float(n[1]), Float(n[2]), n[3])
+    }
+
     static var obStep: Int {
         guard let s = screen, s.hasPrefix("ob"), let n = Int(s.dropFirst(2)) else { return 0 }
         return min(max(n, 0), 5)
@@ -35,7 +44,7 @@ enum Demo {
         d.settings.background = value("-masroufiBG") ?? "wine"
         d.settings.onboarded = !s.hasPrefix("ob")
         if s == "today-empty" || s.hasPrefix("ob") { return d }
-        d.settings.dailyBudget = 500
+        d.settings.monthlyBudget = 6000
         d.settings.salaryDay = 27
         d.lastAuto = Date()
 

@@ -39,7 +39,8 @@ final class CardSceneView: SCNView, UIGestureRecognizerDelegate {
 
     init() {
         super.init(frame: .zero, options: nil)
-        backgroundColor = .clear
+        // in a frozen screenshot pose the stage is tinted, so a cut-off edge would be visible against it
+        backgroundColor = Demo.cardPose == nil ? .clear : UIColor(red: 0, green: 1, blue: 0, alpha: 0.18)
         isOpaque = false
         antialiasingMode = .multisampling4X
         rendersContinuously = false
@@ -74,9 +75,9 @@ final class CardSceneView: SCNView, UIGestureRecognizerDelegate {
         s.lightingEnvironment.intensity = 1.25
 
         let cam = SCNCamera()
-        cam.fieldOfView = 30
+        cam.fieldOfView = 20
         camNode.camera = cam
-        camNode.position = SCNVector3(0, 0, 4.5)
+        camNode.position = SCNVector3(0, 0, 7.8)
         s.rootNode.addChildNode(camNode)
         pointOfView = camNode
 
@@ -126,14 +127,31 @@ final class CardSceneView: SCNView, UIGestureRecognizerDelegate {
 
         if reduceMotion {
             pivot.eulerAngles = base
-        } else { // intro: rises and turns into place, then a gentle sway that settles
-            pivot.position = SCNVector3(0, -0.5, 0)
-            pivot.eulerAngles = SCNVector3(base.x, base.y - 1.1, base.z)
-            let intro = SCNAction.group([SCNAction.move(to: SCNVector3Zero, duration: 0.6),
+        } else { // intro: fades in and turns into place, then a gentle sway that settles (stays inside the stage)
+            pivot.opacity = 0
+            pivot.scale = SCNVector3(0.92, 0.92, 0.92)
+            pivot.eulerAngles = SCNVector3(base.x, base.y - 0.3, base.z)
+            let intro = SCNAction.group([SCNAction.fadeIn(duration: 0.35),
+                                         SCNAction.scale(to: 1, duration: 0.6),
                                          SCNAction.rotateTo(x: CGFloat(base.x), y: CGFloat(base.y), z: CGFloat(base.z), duration: 0.6, usesShortestUnitArc: true)])
             intro.timingMode = .easeOut
             pivot.runAction(SCNAction.sequence([intro, sway()]), forKey: "intro")
         }
+        if let pose = Demo.cardPose { // screenshot checks: a frozen pose (flip angle in degrees, optional drag)
+            pivot.removeAllActions(); pivot.opacity = 1; pivot.scale = SCNVector3(1, 1, 1)
+            pivot.eulerAngles = SCNVector3(base.x + pose.pitch, base.y + pose.yaw, base.z)
+            let k = Float(pose.scale)
+            card.scale = SCNVector3(k, k, k)
+            card.eulerAngles.y = Float(pose.flip * .pi / 180)
+        }
+    }
+
+    /// The card's motion limits. The camera distance in `layoutSubviews` is worked out so that every pose
+    /// these allow (sway, drag, flip, intro) stays inside the view: no edge of the card is ever cut off.
+    private enum Limit {
+        static let yaw: Float = 0.25        // horizontal drag
+        static let pitch: Float = 0.06      // vertical component of a drag
+        static let flipScale: CGFloat = 0.78
     }
 
     private func sway() -> SCNAction {
@@ -146,14 +164,15 @@ final class CardSceneView: SCNView, UIGestureRecognizerDelegate {
         return SCNAction.sequence(actions)
     }
 
-    /// Keep the card as large as the view allows (approved design: card fills most of the stage).
+    /// As large as the view allows while the widest pose still fits (checked by projecting the card's corners for
+    /// every sway, drag, flip and intro frame): at rest the card fills ~84% of the stage height.
     override func layoutSubviews() {
         super.layoutSubviews()
         guard bounds.height > 0 else { return }
-        let t = tan(15.0 * Double.pi / 180)              // half of the 30° field of view
+        let t = tan(10.0 * Double.pi / 180)              // half of the 20° field of view
         let aspect = Double(bounds.width / bounds.height)
-        let fitHeight = 2.4 / (2 * t)                     // card height incl. tilt and sway
-        let fitWidth = 3.9 / (2 * t * aspect)             // card width incl. tilt and sway
+        let fitHeight = 2.76 / (2 * t)
+        let fitWidth = 3.70 / (2 * t * aspect)
         camNode.position = SCNVector3(0, 0, Float(max(fitHeight, fitWidth)))
     }
 
@@ -256,8 +275,18 @@ final class CardSceneView: SCNView, UIGestureRecognizerDelegate {
 
     override func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
         guard let pan = g as? UIPanGestureRecognizer else { return true }
+        if card.action(forKey: "flip") != nil { return false }   // no tilting while the card turns over
         let v = pan.velocity(in: self)
         return abs(v.x) > abs(v.y) // vertical drags keep scrolling the page
+    }
+
+    /// Brings the card fully in (if the intro was interrupted) and back to its resting tilt.
+    private func settle(_ duration: TimeInterval, key: String) {
+        let d = reduceMotion ? 0.01 : duration
+        let back = SCNAction.group([SCNAction.fadeIn(duration: d), SCNAction.scale(to: 1, duration: d),
+                                    SCNAction.rotateTo(x: CGFloat(base.x), y: CGFloat(base.y), z: CGFloat(base.z), duration: d, usesShortestUnitArc: true)])
+        back.timingMode = .easeOut
+        pivot.runAction(back, forKey: key)
     }
 
     @objc private func onPan(_ g: UIPanGestureRecognizer) {
@@ -265,21 +294,29 @@ final class CardSceneView: SCNView, UIGestureRecognizerDelegate {
         switch g.state {
         case .began:
             pivot.removeAllActions()
+            pivot.runAction(SCNAction.group([SCNAction.fadeIn(duration: 0.15), SCNAction.scale(to: 1, duration: 0.15)]))
         case .changed:
-            let dir: Float = effectiveUserInterfaceLayoutDirection == .rightToLeft ? 1 : 1
-            pivot.eulerAngles = SCNVector3(base.x + Float(t.y) * 0.004, base.y + dir * Float(t.x) * 0.01, base.z)
+            // rubber band: follows the finger, then resists, never past the limits the camera was fitted for
+            let yaw = Limit.yaw * tanh(Float(t.x) * 0.01 / Limit.yaw)
+            let pitch = Limit.pitch * tanh(Float(t.y) * 0.004 / Limit.pitch)
+            pivot.eulerAngles = SCNVector3(base.x + pitch, base.y + yaw, base.z)
         default:
-            let back = SCNAction.rotateTo(x: CGFloat(base.x), y: CGFloat(base.y), z: CGFloat(base.z), duration: reduceMotion ? 0.01 : 0.5, usesShortestUnitArc: true)
-            back.timingMode = .easeOut
-            pivot.runAction(back)
+            settle(0.5, key: "back")
         }
     }
 
     @objc private func onTap() {
         flipped.toggle()
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        let a = SCNAction.rotateTo(x: 0, y: flipped ? .pi : 0, z: 0, duration: reduceMotion ? 0.01 : 0.6, usesShortestUnitArc: false)
-        a.timingMode = .easeInEaseOut
-        card.runAction(a)
+        pivot.removeAllActions()
+        settle(0.25, key: "back")   // straighten up first, so the turning card stays inside the stage
+        let turn = SCNAction.rotateTo(x: 0, y: flipped ? .pi : 0, z: 0, duration: reduceMotion ? 0.01 : 0.6, usesShortestUnitArc: false)
+        turn.timingMode = .easeInEaseOut
+        if reduceMotion {
+            card.runAction(turn, forKey: "flip")
+        } else { // lifts slightly away while it turns, like a card picked up and turned over
+            let lift = SCNAction.sequence([SCNAction.scale(to: Limit.flipScale, duration: 0.3), SCNAction.scale(to: 1, duration: 0.3)])
+            card.runAction(SCNAction.group([turn, lift]), forKey: "flip")
+        }
     }
 }

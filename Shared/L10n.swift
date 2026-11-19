@@ -7,6 +7,10 @@ enum L10n {
         "today": ("اليوم", "Today"), "txs": ("العمليات", "Transactions"), "insights": ("التحليل", "Insights"), "settings": ("الإعدادات", "Settings"),
         "cur": ("ر.ق", "QAR"), "of": ("من", "of"), "spent": ("صرفت", "Spent"),
         "spentToday": ("مصروف اليوم", "Spent today"), "remainingToday": ("متبقٍّ لك اليوم", "Left for today"), "leftToday": ("متبقٍّ اليوم", "Left today"),
+        "remainingMonth": ("متبقٍّ لك هذا الشهر", "Left this month"), "leftMonth": ("متبقٍّ هذا الشهر", "Left this month"),
+        "spentMonth": ("صرفت هذا الشهر", "Spent this month"), "monthly": ("الميزانية الشهرية", "Monthly budget"),
+        "perDayLeft": ("≈ {d} ر.ق لكل يوم · باقي {n}", "≈ QAR {d} a day · {n} left"), "renewsIn": ("تتجدد الميزانية بعد {n}", "Budget renews in {n}"),
+        "perDayShare": ("حصة كل يوم", "Per day"), "undatedDay": ("تاريخ الرسائل اللي ما فيها تاريخ", "Date for messages without one"), "monthHint": ("كل عملية في هذا الشهر تنخصم منها، حتى العمليات القديمة اللي تضيفها بعدين بتاريخها.", "Every transaction this month comes off it, including older ones you add later with their date."),
         "ok": ("ضمن الميزانية", "Within budget"), "near": ("قربت من الحد", "Close to limit"), "over": ("تجاوزت بـ", "Over by"), "overShort": ("تجاوزت", "Over"),
         "spentOf": ("صرفت {s} من {b}", "Spent {s} of {b}"),
         "todayTx": ("عمليات اليوم", "Today's transactions"), "all": ("الكل", "All"),
@@ -40,12 +44,12 @@ enum L10n {
         "lastAuto": ("آخر تسجيل تلقائي", "Last auto-logged"), "cycle": ("دورة الميزانية", "Budget cycle"), "cycleSpent": ("صرفت في الدورة", "Spent this cycle"),
         "dailyAvg": ("متوسط اليوم", "Daily average"), "projected": ("المتوقع للدورة", "Projected"), "vsPrev": ("مقارنة بالدورة السابقة", "vs previous cycle"),
         "byCat": ("حسب الفئة", "By category"), "topMerchants": ("أكثر التجار", "Top merchants"), "perDay": ("كل يوم", "Per day"),
-        "budgetLine": ("الخط = ميزانيتك اليومية", "Line = your daily budget"), "noData": ("ما فيه بيانات كافية بعد", "Not enough data yet"),
+        "budgetLine": ("الخط = ميزانية الشهر ÷ أيامه", "Line = monthly budget ÷ days"), "noData": ("ما فيه بيانات كافية بعد", "Not enough data yet"),
         "start": ("ابدأ", "Start"), "next": ("التالي", "Next"), "skip": ("تخطّي", "Skip"), "later": ("سأفعلها لاحقاً", "I'll do it later"),
         "openShortcuts": ("افتح الاختصارات", "Open Shortcuts"), "enterApp": ("ادخل التطبيق", "Enter the app"),
         "enableAlerts": ("فعّل التنبيهات", "Turn on alerts"), "notNow": ("ليس الآن", "Not now"),
         "ob1t": ("مصروفك اليومي…\nيُحسب لحاله", "Your daily spending…\ncounted for you"),
-        "ob1p": ("يقرأ رسائل بنكك ويسجّل كل عملية تلقائياً، ويقول لك كم باقي لك اليوم.", "Reads your bank texts, logs every transaction automatically, and tells you what is left for today."),
+        "ob1p": ("يقرأ رسائل بنكك ويسجّل كل عملية تلقائياً، ويقول لك كم باقي من ميزانية الشهر.", "Reads your bank texts, logs every transaction automatically, and tells you what is left of this month's budget."),
         "v1": ("بدون إدخال يدوي", "No manual entry"), "v2": ("فئاتك وميزانيتك أنت تحددها", "Your own categories and budget"), "v3": ("بياناتك على جهازك فقط", "Your data stays on your phone"),
         "ob2t": ("جرّب بنفسك", "Try it"), "ob2p": ("انسخ أي رسالة من بنكك والصقها هنا، وشوفها تتحوّل لعملية.", "Copy any message from your bank and paste it here to see it become a transaction."),
         "addToMine": ("أضفها لعملياتي", "Add it to my transactions"), "added": ("أُضيفت ✓", "Added ✓"),
@@ -57,11 +61,11 @@ enum L10n {
         "st4": ("اجعل «الرسالة» = «مُدخل الاختصار».", "Set “Message” to Shortcut Input."),
         "st5": ("إذا رسائل بنكك بالعربي، كرّر الأتمتة بكلمة ر.ق.", "If your bank texts in Arabic, repeat with the word ر.ق."),
         "tip": ("نصيحة: أطفئ «الإشعار عند التشغيل» في الأتمتة؛ مصروفي يرسل لك إشعاره الخاص.", "Tip: turn off “Notify When Run” — Masroufi sends its own notification."),
-        "ob4t": ("كم ميزانيتك اليومية؟", "What is your daily budget?"), "ob4p": ("نحسب منها المتبقّي لك كل يوم. تقدر تغيّرها بأي وقت.", "We use it to show what is left each day. Change it anytime."),
+        "ob4t": ("كم ميزانيتك الشهرية؟", "What is your monthly budget?"), "ob4p": ("كل عملية تنخصم منها، حتى العمليات القديمة اللي تضيفها بعدين. تقدر تغيّرها بأي وقت.", "Every transaction comes off it, including older ones you add later. Change it anytime."),
         "monthBudget": ("ميزانية الدورة", "Cycle budget"),
         "salaryHint": ("يبدأ شهر الميزانية من يوم الراتب، فتعرف كم باقي لين الراتب الجاي.", "Your budget month starts on salary day, so you know what is left until the next one."),
         "ob5t": ("نبّهني قبل ما أتجاوز", "Warn me before I overspend"),
-        "ob5p": ("إشعار عند 80٪ و100٪ من ميزانية اليوم، وتأكيد مع كل عملية.", "A notification at 80% and 100% of today’s budget, plus a confirmation for each transaction."),
+        "ob5p": ("إشعار عند 80٪ و100٪ من ميزانية الشهر، وتأكيد مع كل عملية.", "A notification at 80% and 100% of your monthly budget, plus a confirmation for each transaction."),
         "ob6t": ("بياناتك لك", "Your data is yours"),
         "ob6p": ("كل شيء محفوظ على جوالك فقط. لا خوادم، لا حسابات، والتطبيق لا يتصل بالإنترنت. وتقدر تصدّرها CSV متى شئت.", "Everything stays on your phone. No servers, no accounts, and the app never goes online. Export to CSV anytime."),
         "saved": ("تم الحفظ", "Saved"), "testIt": ("اختبر قراءة رسالة", "Test reading a message"),
@@ -69,20 +73,31 @@ enum L10n {
         "version": ("الإصدار 1.1", "Version 1.1"), "wipe": ("حذف كل البيانات", "Delete all data"),
         "wipeQ": ("سيُحذف كل شيء نهائياً. اضغط مرة ثانية للتأكيد", "Everything will be deleted. Tap again to confirm"),
         "editCat": ("تعديل الفئة", "Edit category"), "delCat": ("حذف الفئة", "Delete category"), "builtin": ("أساسية", "Built-in"),
-        "thisCycle": ("هذه الدورة", "This cycle"), "alert80d": ("تنبيه عند 80٪ من ميزانية اليوم", "Alert at 80% of daily budget"),
+        "thisCycle": ("هذه الدورة", "This cycle"), "alert80d": ("تنبيه عند 80٪ من ميزانية الشهر", "Alert at 80% of monthly budget"),
         "alert100d": ("تنبيه عند تجاوز الميزانية", "Alert when over budget"), "overBy2": ("فوق الميزانية بـ {n}", "{n} over budget"),
         "underBy2": ("تحت الميزانية بـ {n}", "{n} under budget"), "replay": ("إعادة الشاشات الترحيبية", "Replay welcome screens"),
         "week": ("آخر 7 أيام", "Last 7 days"),
         "notifOff": ("التنبيهات مطفأة من إعدادات الآيفون — اضغط هنا لتفعيلها", "Notifications are off in iPhone Settings — tap to turn them on"), "back": ("رجوع", "Back"),
         // notifications
         "nDebit": ("صرفت {a} ر.ق · {c}", "Spent QAR {a} · {c}"), "nCredit": ("وصلك {a} ر.ق · {c}", "Received QAR {a} · {c}"),
-        "nLeft": ("متبقٍّ لك اليوم {l} من {b} ر.ق", "Left today: {l} of {b} QAR"), "nOver": ("تجاوزت ميزانية اليوم بـ {o} ر.ق", "Over today's budget by QAR {o}"),
-        "nSpent": ("صرفت اليوم {s} ر.ق", "Spent today: QAR {s}"),
-        "nNearT": ("قربت من حد اليوم", "Close to today's limit"), "nNearB": ("صرفت {s} من {b} ر.ق · باقي {l}", "Spent {s} of {b} QAR · {l} left"),
-        "nOverT": ("تجاوزت ميزانية اليوم", "Over today's budget"), "nOverB": ("صرفت {s} من {b} ر.ق · زيادة {o}", "Spent {s} of {b} QAR · {o} over"),
+        "nLeft": ("متبقٍّ لك هذا الشهر {l} من {b} ر.ق", "Left this month: {l} of {b} QAR"), "nOver": ("تجاوزت ميزانية الشهر بـ {o} ر.ق", "Over this month's budget by QAR {o}"),
+        "nSpent": ("صرفت هذا الشهر {s} ر.ق", "Spent this month: QAR {s}"),
+        "nNearT": ("قربت من حد الشهر", "Close to this month's limit"), "nNearB": ("صرفت {s} من {b} ر.ق · باقي {l}", "Spent {s} of {b} QAR · {l} left"),
+        "nOverT": ("تجاوزت ميزانية الشهر", "Over this month's budget"), "nOverB": ("صرفت {s} من {b} ر.ق · زيادة {o}", "Spent {s} of {b} QAR · {o} over"),
         "nCatNearT": ("ميزانية «{c}» وصلت 80٪", "“{c}” budget at 80%"), "nCatOverT": ("تجاوزت ميزانية «{c}»", "Over the “{c}” budget"),
         "nCatB": ("صرفت {s} من {b} ر.ق في هذه الدورة", "Spent {s} of {b} QAR this cycle"),
     ]
+
+    /// "7 أيام" / "يومين" / "7 days".
+    static func days(_ n: Int, _ lang: Lang) -> String {
+        if lang == .en { return n == 1 ? "1 day" : "\(n) days" }
+        switch n {
+        case 1: return "يوم واحد"
+        case 2: return "يومين"
+        case 3...10: return "\(n) أيام"
+        default: return "\(n) يوم"
+        }
+    }
 
     static func t(_ key: String, _ lang: Lang, _ vars: [String: String] = [:]) -> String {
         guard let pair = table[key] else { return key }

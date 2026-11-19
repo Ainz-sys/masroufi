@@ -223,6 +223,7 @@ struct AddSheet: View {
     @State private var autoCategory = true
     @State private var date = Date()
     @State private var pasted = ""
+    @State private var undatedDay = Date()
     @FocusState private var focus: Field?
     enum Field { case amount, merchant, paste }
 
@@ -309,7 +310,12 @@ struct AddSheet: View {
             .background(p.surface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .environment(\.layoutDirection, .leftToRight)
             .padding(.horizontal, 18).padding(.top, 14)
-            PastePreview(text: pasted)
+            if found.contains(where: { $0.0.date == nil }) { // older messages without a date: pick the day they happened
+                FieldBox(label: store.t("undatedDay")) {
+                    DatePicker("", selection: $undatedDay, in: ...Date(), displayedComponents: .date).labelsHidden().tint(Tok.tint)
+                }
+            }
+            PastePreview(text: pasted, undated: undatedDay)
         }
         .padding(.bottom, 24)
     }
@@ -317,7 +323,7 @@ struct AddSheet: View {
     func save() {
         focus = nil
         if paste {
-            let n = store.addPasted(pasted)
+            let n = store.addPasted(pasted, undated: undatedDay)
             nav.show(store.t("saved") + " · \(n)")
         } else if let a = amount, a > 0 {
             store.addManual(amount: a, merchant: merchant, categoryID: categoryID, date: date, kind: .debit)
@@ -331,6 +337,7 @@ struct PastePreview: View {
     @EnvironmentObject var store: Store
     @Environment(\.palette) private var p
     let text: String
+    var undated: Date? = nil
     var body: some View {
         if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             let found = Ledger.parseMany(text)
@@ -341,7 +348,7 @@ struct PastePreview: View {
                 SurfaceGroup {
                     ForEach(Array(found.enumerated()), id: \.offset) { item in
                         if item.offset > 0 { RowDivider() }
-                        TxRow(tx: Ledger.transaction(from: item.element.0, raw: item.element.1, data: store.data, now: Date(), live: false))
+                        TxRow(tx: Ledger.transaction(from: item.element.0, raw: item.element.1, data: store.data, now: Date(), live: false, undated: undated))
                     }
                 }
             }
@@ -530,7 +537,7 @@ struct BudgetSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                NavBar(title: store.t("daily")) {
+                NavBar(title: store.t("monthly")) {
                     TextAction(title: store.t("cancel"), color: p.label2, weight: .medium) { dismiss() }
                 } trailing: {
                     TextAction(title: store.t("save")) { save() }
@@ -538,13 +545,15 @@ struct BudgetSheet: View {
                 ScrollView {
                     VStack(spacing: 0) {
                         BudgetInput(text: $text).padding(.top, 14)
-                        Presets(values: [150, 200, 300, 500, 800], text: $text).padding(.top, 18)
+                        Presets(values: Presets.monthly, text: $text).padding(.top, 18)
                         SurfaceGroup {
-                            SettingRow(icon: "cash", title: store.t("monthBudget"), chevron: false) {
-                                Text("\u{200E}≈ " + Fmt.m0(value * Double(Ledger.cycle(salaryDay: store.data.settings.salaryDay).days)) + " " + store.t("cur"))
+                            SettingRow(icon: "cash", title: store.t("perDayShare"), chevron: false) {
+                                Text("\u{200E}≈ " + Fmt.m0(value / Double(Ledger.cycle(salaryDay: store.data.settings.salaryDay).days)) + " " + store.t("cur"))
                             }
                         }
                         .padding(.top, 24)
+                        Text(store.t("monthHint")).font(.alx(13.5)).foregroundStyle(p.label2)
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 22).padding(.top, 8)
                     }
                 }
                 BottomBar { PrimaryButton(title: store.t("save")) { save() } }
@@ -557,14 +566,14 @@ struct BudgetSheet: View {
                     Button(store.t("done")) { hideKeyboard() }.font(.alx(16, .semibold))
                 }
             }
-            .onAppear { let b = store.data.settings.dailyBudget; text = b > 0 ? Fmt.m0(b).replacingOccurrences(of: ",", with: "") : "" }
+            .onAppear { let b = store.data.settings.monthlyBudget; text = b > 0 ? Fmt.m0(b).replacingOccurrences(of: ",", with: "") : "" }
         }
         .presentationDetents([.medium, .large])
     }
 
     func save() {
         let v = max(0, value)
-        store.update { $0.settings.dailyBudget = v }
+        store.update { $0.settings.monthlyBudget = v; Ledger.resetMonthAlerts(&$0) }
         nav.show(store.t("saved"))
         dismiss()
     }
@@ -577,11 +586,12 @@ struct BudgetInput: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             TextField("", text: $text, prompt: Text("0").foregroundColor(p.label3))
-                .font(.alx(64, .semibold, relativeTo: .largeTitle)).monospacedDigit()
+                .font(.alx(56, .semibold, relativeTo: .largeTitle)).monospacedDigit()
                 .multilineTextAlignment(.center)
                 .keyboardType(.decimalPad)
                 .foregroundStyle(p.label)
-                .frame(width: 200)
+                .minimumScaleFactor(0.6)
+                .frame(width: 240)
                 .padding(.bottom, 4)
                 .overlay(alignment: .bottom) { Rectangle().fill(Tok.tintInk).frame(height: 2) }
                 .environment(\.layoutDirection, .leftToRight)
@@ -592,6 +602,7 @@ struct BudgetInput: View {
 }
 
 struct Presets: View {
+    static let monthly: [Double] = [3000, 5000, 10000, 15000]
     let values: [Double]
     @Binding var text: String
     var body: some View {

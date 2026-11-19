@@ -73,9 +73,13 @@ jobs:
             xcrun simctl status_bar "$1" override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
             xcrun simctl install "$1" "$APP"
           }
-          shoot() { # udid screen lang bg file
+          shoot() { # udid screen lang bg file [card pose "flip,yaw,pitch,scale"]
             xcrun simctl terminate "$1" com.masroufi.app >/dev/null 2>&1 || true
-            xcrun simctl launch "$1" com.masroufi.app -masroufiDemo "$2" -masroufiLang "$3" -masroufiBG "$4" >/dev/null
+            if [ -n "$6" ]; then
+              xcrun simctl launch "$1" com.masroufi.app -masroufiDemo "$2" -masroufiLang "$3" -masroufiBG "$4" -masroufiCardPose "$6" >/dev/null
+            else
+              xcrun simctl launch "$1" com.masroufi.app -masroufiDemo "$2" -masroufiLang "$3" -masroufiBG "$4" >/dev/null
+            fi
             sleep 7
             xcrun simctl io "$1" screenshot "shots/$5.png" >/dev/null
           }
@@ -84,15 +88,24 @@ jobs:
             shoot "$UDID" "$s" ar wine "$s"
           done
           shoot "$UDID" today en navy en-today
+          # the widest poses the card can take (worked out from its motion limits), on a tinted stage
+          shoot "$UDID" today ar wine pose-flip "129,-0.08,0,0.846"
+          shoot "$UDID" today ar wine pose-drag "0,-0.25,0.06,1"
           shoot "$UDID" insights en graphite en-insights
           xcrun simctl ui "$UDID" content_size accessibility-extra-extra-extra-large
           shoot "$UDID" today ar wine xxxl-today
           shoot "$UDID" settings ar wine xxxl-settings
           xcrun simctl ui "$UDID" content_size large
           SMALL=$(python3 .github/pick_sim.py small)
-          if [ -n "$SMALL" ]; then prep "$SMALL"; for s in today txs insights settings detail ob0 ob3; do shoot "$SMALL" "$s" ar wine "small-$s"; done; xcrun simctl shutdown "$SMALL" || true; fi
+          if [ -n "$SMALL" ]; then prep "$SMALL"; for s in today txs insights settings detail budget ob0 ob3 ob4; do shoot "$SMALL" "$s" ar wine "small-$s"; done; xcrun simctl shutdown "$SMALL" || true; fi
           MAX=$(python3 .github/pick_sim.py max)
-          if [ -n "$MAX" ]; then prep "$MAX"; for s in today insights; do shoot "$MAX" "$s" ar wine "max-$s"; done; fi
+          if [ -n "$MAX" ]; then
+            prep "$MAX"
+            for s in today txs insights settings; do shoot "$MAX" "$s" ar wine "max-$s"; done
+            shoot "$MAX" today ar wine max-pose-flip "129,-0.08,0,0.846"
+            shoot "$MAX" today ar wine max-pose-drag "180,-0.25,0.06,1"
+            shoot "$MAX" today en wine max-en-today
+          fi
           xcrun simctl list devices booted > shots/devices.txt
       - name: Publish screenshots on the "shots" branch
         if: always()

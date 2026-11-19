@@ -95,6 +95,9 @@ struct Category: Codable, Identifiable, Hashable {
 
 struct Settings: Codable {
     var language: Lang = .ar
+    /// The budget for one budget month (salary day to salary day). 0 = none.
+    var monthlyBudget: Double = 0
+    /// Older versions had a daily budget; it is only read once, to fill `monthlyBudget`.
     var dailyBudget: Double = 0
     var salaryDay: Int = 1
     var alert80: Bool = true
@@ -108,6 +111,11 @@ struct Settings: Codable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         language = try c.decodeIfPresent(Lang.self, forKey: .language) ?? .ar
         dailyBudget = try c.decodeIfPresent(Double.self, forKey: .dailyBudget) ?? 0
+        if let m = try c.decodeIfPresent(Double.self, forKey: .monthlyBudget) {
+            monthlyBudget = m
+        } else if dailyBudget > 0 { // from a version with a daily budget: big amounts were really meant per month
+            monthlyBudget = dailyBudget >= 1000 ? dailyBudget : (dailyBudget * 30).rounded()
+        }
         salaryDay = try c.decodeIfPresent(Int.self, forKey: .salaryDay) ?? 1
         alert80 = try c.decodeIfPresent(Bool.self, forKey: .alert80) ?? true
         alert100 = try c.decodeIfPresent(Bool.self, forKey: .alert100) ?? true
@@ -237,14 +245,30 @@ enum Ledger {
         return (start, end, cal.dateComponents([.day], from: start, to: end).day ?? 30)
     }
 
-    struct Today { var spent: Double; var budget: Double; var remaining: Double; var fraction: Double; var count: Int }
+    /// This budget month (salary day to salary day) against the monthly budget.
+    /// Every counted transaction dated inside the month comes off the budget, whenever it was added:
+    /// older bank messages pasted later, or a manual entry with an earlier date, are deducted too.
+    struct Month: Equatable {
+        var start: Date, end: Date
+        var budget: Double          // 0 = no monthly budget
+        var spent: Double
+        var todaySpent: Double
+        var todayCount: Int
+        var daysLeft: Int           // today included
+        var remaining: Double { budget - spent }
+        var fraction: Double { budget > 0 ? spent / budget : 0 }
+        /// What can still be spent per day for the rest of the month, today included.
+        var perDay: Double { max(0, remaining) / Double(max(1, daysLeft)) }
+    }
 
-    static func today(_ d: AppData, now: Date = Date()) -> Today {
+    static func month(_ d: AppData, now: Date = Date()) -> Month {
+        let cy = cycle(salaryDay: d.settings.salaryDay, ref: now)
         let b = dayBounds(now)
-        let s = spent(d, from: b.start, to: b.end)
-        let budget = d.settings.dailyBudget
-        return Today(spent: s, budget: budget, remaining: budget - s, fraction: budget > 0 ? s / budget : 0,
-                     count: d.transactions.filter { $0.date >= b.start && $0.date < b.end }.count)
+        return Month(start: cy.start, end: cy.end, budget: max(0, d.settings.monthlyBudget),
+                     spent: spent(d, from: cy.start, to: cy.end),
+                     todaySpent: spent(d, from: b.start, to: b.end),
+                     todayCount: d.transactions.filter { $0.date >= b.start && $0.date < b.end }.count,
+                     daysLeft: max(1, cal.dateComponents([.day], from: b.start, to: cy.end).day ?? 1))
     }
 
     static func transactions(_ d: AppData, on day: Date) -> [Transaction] {
@@ -253,8 +277,13 @@ enum Ledger {
     }
 
     /// Builds a transaction from a parsed SMS. `live` = arriving now from the automation.
-    static func transaction(from p: ParsedSMS, raw: String, data: AppData, now: Date, live: Bool) -> Transaction {
+    /// `undated`: the day to use when an older, pasted message carries no date of its own.
+    static func transaction(from p: ParsedSMS, raw: String, data: AppData, now: Date, live: Bool, undated: Date? = nil) -> Transaction {
         var date = now, noTime = false
+        if p.date == nil, let day = undated, !cal.isDate(day, inSameDayAs: now) {
+            date = cal.date(byAdding: .hour, value: 12, to: cal.startOfDay(for: day)) ?? day
+            noTime = true
+        }
         if let pd = p.date {
             if p.hasTime {
                 if !live || abs(pd.timeIntervalSince(now)) < 36 * 3600 { date = pd }
@@ -304,24 +333,22 @@ enum Ledger {
         }
     }
 
-    /// 80% / 100% of the daily budget, and of each category's monthly budget. Each alert fires once per day / cycle.
+    /// 80% / 100% of the monthly budget, and of each category's monthly budget. Each alert fires once per budget month.
     static func checkAlerts(_ d: inout AppData, now: Date) -> [BudgetAlert] {
         var out: [BudgetAlert] = []
-        let t = today(d, now: now)
-        let dayKey = "day-" + key(now)
-        var dayFlags = Set(d.notified[dayKey] ?? [])
-        if t.budget > 0 {
-            if t.spent > t.budget {
-                if d.settings.alert100 && !dayFlags.contains("100") { dayFlags.formUnion(["80", "100"]); out.append(BudgetAlert(kind: .over, spent: t.spent, budget: t.budget)) }
-            } else if t.spent >= 0.8 * t.budget && d.settings.alert80 && !dayFlags.contains("80") {
-                dayFlags.insert("80"); out.append(BudgetAlert(kind: .near, spent: t.spent, budget: t.budget))
-            }
-        }
-        d.notified[dayKey] = Array(dayFlags)
-
+        let m = month(d, now: now)
         let cy = cycle(salaryDay: d.settings.salaryDay, ref: now)
         let cycleKey = "cycle-" + key(cy.start)
         var catFlags = Set(d.notified[cycleKey] ?? [])
+        if m.budget > 0 {
+            if m.spent > m.budget {
+                if d.settings.alert100 && !catFlags.contains(monthOver) {
+                    catFlags.formUnion([monthNear, monthOver]); out.append(BudgetAlert(kind: .over, spent: m.spent, budget: m.budget))
+                }
+            } else if m.spent >= 0.8 * m.budget && d.settings.alert80 && !catFlags.contains(monthNear) {
+                catFlags.insert(monthNear); out.append(BudgetAlert(kind: .near, spent: m.spent, budget: m.budget))
+            }
+        }
         for c in d.categories {
             guard let budget = c.monthlyBudget, budget > 0, c.alertAt80 else { continue }
             let s = d.transactions.filter { $0.categoryID == c.id && $0.counts && $0.date >= cy.start && $0.date < cy.end }.reduce(0) { $0 + $1.amountHome }
@@ -332,9 +359,18 @@ enum Ledger {
             }
         }
         d.notified[cycleKey] = Array(catFlags)
-        let keys = d.notified.keys.sorted()
-        if keys.count > 60 { for k in keys.prefix(keys.count - 60) { d.notified[k] = nil } }
+        for k in d.notified.keys where k.hasPrefix("day-") { d.notified[k] = nil }   // daily-budget flags of older versions
+        let keys = d.notified.keys.sorted()   // "cycle-YYYY-MM-DD": oldest first
+        if keys.count > 24 { for k in keys.prefix(keys.count - 24) { d.notified[k] = nil } }
         return out
+    }
+
+    static let monthNear = "month:80", monthOver = "month:100"
+
+    /// After the monthly budget changes, its 80% / 100% alerts may fire again this month.
+    static func resetMonthAlerts(_ d: inout AppData, now: Date = Date()) {
+        let k = "cycle-" + key(cycle(salaryDay: d.settings.salaryDay, ref: now).start)
+        d.notified[k]?.removeAll { $0 == monthNear || $0 == monthOver }
     }
 
     /// The day tracking really started: the cycle start, or the first transaction if that is later.
