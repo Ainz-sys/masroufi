@@ -76,7 +76,7 @@ struct RoundButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(size: 19, weight: .semibold))
+                .font(.system(.title3, weight: .semibold))
                 .foregroundStyle(p.label)
                 .frame(width: 46, height: 46)
                 .background(Circle().fill(.ultraThinMaterial))
@@ -215,6 +215,7 @@ struct TxRow: View {
         .frame(minHeight: 72)
         .opacity(tx.excluded ? 0.5 : 1)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -292,7 +293,7 @@ struct PrimaryButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                if let systemImage { Image(systemName: systemImage).font(.system(size: 17, weight: .semibold)) }
+                if let systemImage { Image(systemName: systemImage).font(.system(.body, weight: .semibold)) }
                 Text(title).font(.alx(17, .semibold, relativeTo: .headline))
             }
             .foregroundStyle(ghost ? p.label : Color.white)
@@ -349,7 +350,7 @@ struct SettingRow<Value: View>: View {
             Text(title).font(.alx(16)).foregroundStyle(p.label).multilineTextAlignment(.leading)
             Spacer(minLength: 8)
             value().font(.alx(15)).foregroundStyle(p.label2)
-            if chevron { Image(systemName: "chevron.forward").font(.system(size: 13, weight: .semibold)).foregroundStyle(p.label3) }
+            if chevron { Image(systemName: "chevron.forward").font(.system(.footnote, weight: .semibold)).foregroundStyle(p.label3).accessibilityHidden(true) }
         }
         .padding(.horizontal, 16)
         .frame(minHeight: 56)
@@ -446,6 +447,14 @@ struct FloatingTabBar: View {
         .overlay(Capsule().strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.45), radius: 16, x: 0, y: 12)
         .padding(.horizontal, 16)
-        .padding(.bottom, 6)
+    }
+}
+
+enum Layout {
+    /// Distance from the bottom of the screen to the floating tab bar, from the real safe area of this iPhone.
+    @MainActor static var tabBarBottom: CGFloat {
+        let inset = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }.first { $0.isKeyWindow }?.safeAreaInsets.bottom ?? 0
+        return inset > 0 ? max(12, inset - 12) : 10   // Face ID iPhones: clear the home indicator; Home-button iPhones: 10 pt
     }
 }

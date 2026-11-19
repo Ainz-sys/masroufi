@@ -192,10 +192,10 @@ struct OnboardingFlow: View {
             hero("sms", store.t("ob2t"), store.t("ob2p"))
             ZStack(alignment: .topLeading) {
                 if sample.isEmpty {
-                    Text(store.t("pastePh")).font(.system(size: 16)).foregroundStyle(p.label3).padding(.horizontal, 20).padding(.vertical, 22)
+                    Text(store.t("pastePh")).font(.alx(16)).foregroundStyle(p.label3).padding(.horizontal, 20).padding(.vertical, 22)
                 }
                 TextEditor(text: $sample)
-                    .font(.system(size: 16)).foregroundStyle(p.label)
+                    .font(.alx(16)).foregroundStyle(p.label)
                     .scrollContentBackground(.hidden)
                     .focused($focused)
                     .padding(12)

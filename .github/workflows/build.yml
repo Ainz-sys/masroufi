@@ -54,13 +54,7 @@ jobs:
         run: brew install xcodegen && xcodegen generate
       - name: Pick and boot an iPhone simulator
         run: |
-          UDID=$(xcrun simctl list devices available -j | python3 -c '
-          import json, sys
-          devices = json.load(sys.stdin)["devices"]
-          found = [(rt, d) for rt, ds in devices.items() if "iOS" in rt for d in ds
-                   if d["name"].startswith("iPhone") and "Pro" in d["name"] and "Max" not in d["name"]]
-          found.sort(key=lambda t: t[0])
-          print(found[-1][1]["udid"])')
+          UDID=$(python3 .github/pick_sim.py pro)
           echo "UDID=$UDID" >> "$GITHUB_ENV"
           xcrun simctl boot "$UDID" || true
       - name: Build for the simulator
@@ -68,25 +62,38 @@ jobs:
           set -o pipefail
           xcodebuild -project Masroufi.xcodeproj -scheme Masroufi -configuration Debug -destination "id=$UDID" \
             -derivedDataPath simbuild CODE_SIGNING_ALLOWED=NO build 2>&1 | tee sim.log | tail -n 30
-      - name: Take screenshots
+      - name: Take screenshots (iPhone Pro, small iPhone, Pro Max, largest text)
         run: |
-          xcrun simctl bootstatus "$UDID" -b
-          xcrun simctl ui "$UDID" appearance dark
-          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
-          xcrun simctl install "$UDID" simbuild/Build/Products/Debug-iphonesimulator/Masroufi.app
+          APP=simbuild/Build/Products/Debug-iphonesimulator/Masroufi.app
           mkdir -p shots
-          shoot() {
-            xcrun simctl terminate "$UDID" com.masroufi.app >/dev/null 2>&1 || true
-            xcrun simctl launch "$UDID" com.masroufi.app -masroufiDemo "$1" -masroufiLang "$2" -masroufiBG "$3" >/dev/null
-            sleep 5
-            xcrun simctl io "$UDID" screenshot "shots/$4.png" >/dev/null
+          prep() {
+            xcrun simctl boot "$1" >/dev/null 2>&1 || true
+            xcrun simctl bootstatus "$1" -b >/dev/null
+            xcrun simctl ui "$1" appearance dark
+            xcrun simctl status_bar "$1" override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
+            xcrun simctl install "$1" "$APP"
           }
+          shoot() { # udid screen lang bg file
+            xcrun simctl terminate "$1" com.masroufi.app >/dev/null 2>&1 || true
+            xcrun simctl launch "$1" com.masroufi.app -masroufiDemo "$2" -masroufiLang "$3" -masroufiBG "$4" >/dev/null
+            sleep 5
+            xcrun simctl io "$1" screenshot "shots/$5.png" >/dev/null
+          }
+          prep "$UDID"
           for s in ob0 ob1 ob2 ob3 ob4 ob5 today today-empty txs insights settings detail add add-paste newcat budget guide categories; do
-            shoot "$s" ar wine "$s"
+            shoot "$UDID" "$s" ar wine "$s"
           done
-          shoot today en navy en-today
-          shoot insights en graphite en-insights
-          shoot settings ar graphite graphite-settings
+          shoot "$UDID" today en navy en-today
+          shoot "$UDID" insights en graphite en-insights
+          xcrun simctl ui "$UDID" content_size accessibility-extra-extra-extra-large
+          shoot "$UDID" today ar wine xxxl-today
+          shoot "$UDID" settings ar wine xxxl-settings
+          xcrun simctl ui "$UDID" content_size large
+          SMALL=$(python3 .github/pick_sim.py small)
+          if [ -n "$SMALL" ]; then prep "$SMALL"; for s in today txs insights settings detail ob0 ob3; do shoot "$SMALL" "$s" ar wine "small-$s"; done; xcrun simctl shutdown "$SMALL" || true; fi
+          MAX=$(python3 .github/pick_sim.py max)
+          if [ -n "$MAX" ]; then prep "$MAX"; for s in today insights; do shoot "$MAX" "$s" ar wine "max-$s"; done; fi
+          xcrun simctl list devices booted > shots/devices.txt
       - name: Publish screenshots on the "shots" branch
         if: always()
         run: |

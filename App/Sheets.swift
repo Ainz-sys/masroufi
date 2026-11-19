@@ -61,7 +61,7 @@ struct BankBubble: View {
             last = m.location + m.length
         }
         return Text(attr)
-            .font(.system(size: 15))
+            .font(.alx(15))
             .foregroundStyle(p.label)
             .lineSpacing(4)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -297,10 +297,10 @@ struct AddSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .topLeading) {
                 if pasted.isEmpty {
-                    Text(store.t("pastePh")).font(.system(size: 16)).foregroundStyle(p.label3).padding(.horizontal, 20).padding(.vertical, 22)
+                    Text(store.t("pastePh")).font(.alx(16)).foregroundStyle(p.label3).padding(.horizontal, 20).padding(.vertical, 22)
                 }
                 TextEditor(text: $pasted)
-                    .font(.system(size: 16)).foregroundStyle(p.label)
+                    .font(.alx(16)).foregroundStyle(p.label)
                     .scrollContentBackground(.hidden)
                     .focused($focus, equals: .paste)
                     .padding(12)

@@ -1,6 +1,7 @@
 import SwiftUI
 import Charts
 import UniformTypeIdentifiers
+import UserNotifications
 
 // MARK: - Root
 
@@ -29,18 +30,15 @@ struct MainShell: View {
 
     var body: some View {
         NavigationStack(path: $nav.path) {
-            ZStack(alignment: .bottom) {
-                Group {
-                    switch nav.tab {
-                    case .today: TodayScreen()
-                    case .txs: TransactionsScreen()
-                    case .insights: InsightsScreen()
-                    case .settings: SettingsScreen()
-                    }
+            Group {
+                switch nav.tab {
+                case .today: TodayScreen()
+                case .txs: TransactionsScreen()
+                case .insights: InsightsScreen()
+                case .settings: SettingsScreen()
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                FloatingTabBar()
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(p.bg.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Route.self) { route in
@@ -55,9 +53,23 @@ struct MainShell: View {
                 .toolbar(.hidden, for: .navigationBar)
             }
         }
+        .overlay(alignment: .bottom) {
+            // Pinned to the physical bottom: just above the home indicator, like the system floating tab bar.
+            if nav.path.isEmpty {
+                FloatingTabBar()
+                    .padding(.bottom, Layout.tabBarBottom)
+                    .ignoresSafeArea(.container, edges: .bottom)
+                    .ignoresSafeArea(.keyboard, edges: .bottom)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: nav.path.isEmpty)
         .sheet(item: $nav.sheet) { route in SheetHost(route: route) }
         .overlay(alignment: .bottom) {
-            if let t = nav.toast { Toast(text: t).padding(.bottom, 96).transition(.opacity.combined(with: .move(edge: .bottom))) }
+            if let t = nav.toast {
+                Toast(text: t).padding(.bottom, Layout.tabBarBottom + 80).ignoresSafeArea(.container, edges: .bottom)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
         }
     }
 }
@@ -235,7 +247,7 @@ struct TodayScreen: View {
                     }
                 }
             }
-            .padding(.bottom, 110)
+            .padding(.bottom, 96)
         }
         .scrollIndicators(.hidden)
     }
@@ -319,7 +331,7 @@ struct TransactionsScreen: View {
                     }
                 }
             }
-            .padding(.bottom, 110)
+            .padding(.bottom, 96)
         }
         .scrollIndicators(.hidden)
         .scrollDismissesKeyboard(.immediately)
@@ -439,7 +451,7 @@ struct InsightsScreen: View {
                     }
                 }
             }
-            .padding(.bottom, 110)
+            .padding(.bottom, 96)
         }
         .scrollIndicators(.hidden)
     }
@@ -565,6 +577,8 @@ struct SettingsScreen: View {
     @EnvironmentObject var nav: Nav
     @Environment(\.palette) private var p
     @State private var confirmWipe = false
+    @State private var notificationsDenied = false
+    @Environment(\.openURL) private var openURL
 
     private struct BG: Identifiable { let id: String; let key: String; let color: Color }
     private let backgrounds: [BG] = [BG(id: "wine", key: "bgWine", color: Color(hex: 0x17080F)), BG(id: "navy", key: "bgNavy", color: Color(hex: 0x0B1020)),
@@ -617,6 +631,13 @@ struct SettingsScreen: View {
                     toggleRow("bell", store.t("alert100d"), \.alert100)
                     RowDivider()
                     toggleRow("sms", store.t("perTx"), \.notifyEach)
+                    if notificationsDenied {
+                        RowDivider()
+                        Button { if let u = URL(string: UIApplication.openSettingsURLString) { openURL(u) } } label: {
+                            Text(store.t("notifOff")).font(.alx(14.5)).foregroundStyle(Tok.warning).multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading).padding(.horizontal, 16)
+                        }
+                    }
                 }
 
                 SectionHeader(store.t("categories"), strong: false)
@@ -673,9 +694,13 @@ struct SettingsScreen: View {
                 .font(.alx(12.5)).foregroundStyle(p.label3)
                 .padding(.horizontal, 24).padding(.top, 22)
             }
-            .padding(.bottom, 110)
+            .padding(.bottom, 96)
         }
         .scrollIndicators(.hidden)
+        .task {
+            let s = await UNUserNotificationCenter.current().notificationSettings()
+            notificationsDenied = s.authorizationStatus == .denied
+        }
     }
 
     func toggleRow(_ icon: String, _ title: String, _ kp: WritableKeyPath<Settings, Bool>) -> some View {

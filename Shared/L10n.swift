@@ -72,7 +72,8 @@ enum L10n {
         "thisCycle": ("هذه الدورة", "This cycle"), "alert80d": ("تنبيه عند 80٪ من ميزانية اليوم", "Alert at 80% of daily budget"),
         "alert100d": ("تنبيه عند تجاوز الميزانية", "Alert when over budget"), "overBy2": ("فوق الميزانية بـ {n}", "{n} over budget"),
         "underBy2": ("تحت الميزانية بـ {n}", "{n} under budget"), "replay": ("إعادة الشاشات الترحيبية", "Replay welcome screens"),
-        "week": ("آخر 7 أيام", "Last 7 days"), "back": ("رجوع", "Back"),
+        "week": ("آخر 7 أيام", "Last 7 days"),
+        "notifOff": ("التنبيهات مطفأة من إعدادات الآيفون — اضغط هنا لتفعيلها", "Notifications are off in iPhone Settings — tap to turn them on"), "back": ("رجوع", "Back"),
         // notifications
         "nDebit": ("صرفت {a} ر.ق · {c}", "Spent QAR {a} · {c}"), "nCredit": ("وصلك {a} ر.ق · {c}", "Received QAR {a} · {c}"),
         "nLeft": ("متبقٍّ لك اليوم {l} من {b} ر.ق", "Left today: {l} of {b} QAR"), "nOver": ("تجاوزت ميزانية اليوم بـ {o} ر.ق", "Over today's budget by QAR {o}"),
