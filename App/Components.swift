@@ -458,6 +458,13 @@ struct FloatingTabBar: View {
 enum Layout {
     static let tabBarHeight: CGFloat = 66
 
+    /// Width of this iPhone's screen in points (portrait).
+    @MainActor static var screenWidth: CGFloat {
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        guard let b = scene?.screen.bounds, b.width > 0 else { return 402 }
+        return min(b.width, b.height)
+    }
+
     /// The window's own safe-area insets (status bar / Dynamic Island, home indicator), as a cross-check.
     @MainActor static var windowInsets: UIEdgeInsets {
         let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap { $0.windows }

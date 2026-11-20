@@ -46,7 +46,7 @@ enum Demo {
         if s == "today-empty" || s.hasPrefix("ob") { return d }
         d.settings.monthlyBudget = 6000
         d.settings.salaryDay = 27
-        d.lastAuto = Date()
+        d.lastAuto = s == "guide-off" ? nil : Date()
 
         let cal = Calendar.current, now = Date(), start = cal.startOfDay(for: now)
         let elapsed = now.timeIntervalSince(start)
@@ -91,7 +91,7 @@ enum Demo {
         case "add-paste": nav.sheet = .add(paste: true)
         case "newcat": nav.sheet = .newCategory(forTx: nil)
         case "budget": nav.sheet = .budget
-        case "guide": nav.path = [.guide]
+        case "guide", "guide-off": nav.path = [.guide]
         case "categories": nav.path = [.categories]
         default: break
         }

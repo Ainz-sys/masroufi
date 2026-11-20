@@ -10,9 +10,12 @@ struct RootView: View {
     @StateObject private var nav = Nav()
 
     var body: some View {
-        Group {
+        let scale = TextScale.factor(for: Demo.value("-masroufiText") ?? store.data.settings.textSize, screenWidth: Layout.screenWidth)
+        TextScale.factor = scale   // read by every Font.alx below
+        return Group {
             if store.data.settings.onboarded { MainShell() } else { OnboardingFlow() }
         }
+        .id(scale)                 // a new text size rebuilds the screens with it
         .environmentObject(nav)
         .environment(\.palette, store.palette)
         .environment(\.layoutDirection, store.lang == .ar ? .rightToLeft : .leftToRight)
@@ -244,7 +247,7 @@ struct TodayScreen: View {
                 }
                 Card3DView(info: store.cardInfo()).frame(height: 200)
                 RemainingPanel(month: month)
-                if store.data.lastAuto == nil {
+                if !store.data.autoOn {
                     Button { nav.path.append(.guide) } label: {
                         HStack(spacing: 14) {
                             Icon3D(name: "zap", size: 30)
@@ -271,7 +274,7 @@ struct TodayScreen: View {
                     EmptyCard(icon: "receipt", title: store.t("noTodayT"), text: store.t("noTodayP"), actions: AnyView(
                         HStack(spacing: 8) {
                             SmallButton(title: store.t("addManual")) { nav.sheet = .add(paste: false) }
-                            if store.data.lastAuto == nil { SmallButton(title: store.t("setupAuto"), ghost: true) { nav.path.append(.guide) } }
+                            if !store.data.autoOn { SmallButton(title: store.t("setupAuto"), ghost: true) { nav.path.append(.guide) } }
                         }))
                 } else {
                     SurfaceGroup {
@@ -603,6 +606,49 @@ struct InsightsScreen: View {
 
 // MARK: - Settings
 
+/// Settings → Text size: automatic (by the iPhone's screen size) or a fixed small / medium / large.
+struct TextSizeRow: View {
+    @EnvironmentObject var store: Store
+    @Environment(\.palette) private var p
+    private let options: [(id: String, key: String)] = [("auto", "tsAuto"), ("s", "tsS"), ("m", "tsM"), ("l", "tsL")]
+
+    var body: some View {
+        let current = store.data.settings.textSize
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 14) {
+                Text("Aa").font(.alx(17, .semibold)).foregroundStyle(Tok.gold)
+                    .frame(width: 34, height: 34).background(Circle().fill(p.surface2)).accessibilityHidden(true)
+                Text(store.t("textSize")).font(.alx(16)).foregroundStyle(p.label)
+                Spacer(minLength: 8)
+            }
+            HStack(spacing: 4) {
+                ForEach(options, id: \.id) { o in
+                    let selected = current == o.id
+                    Button {
+                        guard !selected else { return }
+                        UISelectionFeedbackGenerator().selectionChanged()
+                        store.update { $0.settings.textSize = o.id }
+                    } label: {
+                        Text(store.t(o.key)).font(.alx(14, .medium)).lineLimit(1).minimumScaleFactor(0.7)
+                            .foregroundStyle(selected ? Color.white : p.label)
+                            .frame(maxWidth: .infinity, minHeight: 36)
+                            .background(Capsule().fill(selected ? Tok.tint : Color.clear))
+                    }
+                    .buttonStyle(PressStyle())
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                }
+            }
+            .padding(4)
+            .background(Capsule().fill(p.surface2))
+            if current == "auto" {
+                Text(store.t("tsAutoHint")).font(.alx(13)).foregroundStyle(p.label2).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+}
+
 struct CSVFile: Transferable {
     let text: String
     static var transferRepresentation: some TransferRepresentation {
@@ -654,6 +700,8 @@ struct SettingsScreen: View {
                         SettingRow(icon: "globe", title: store.t("language")) { Text(st.language == .ar ? "العربية" : "English") }
                     }
                     .buttonStyle(PressStyle())
+                    RowDivider()
+                    TextSizeRow()
                 }
 
                 SectionHeader(store.t("budget"), strong: false)
@@ -694,13 +742,19 @@ struct SettingsScreen: View {
                 SurfaceGroup {
                     Button { nav.path.append(.guide) } label: {
                         SettingRow(icon: "zap", title: store.t("guide")) {
-                            if store.data.lastAuto != nil { Text(store.t("on")).font(.alx(15, .semibold)).foregroundStyle(Tok.positive) } else { Text(store.t("notYet")) }
+                            if store.data.autoOn { Text(store.t("on")).font(.alx(15, .semibold)).foregroundStyle(Tok.positive) } else { Text(store.t("notYet")) }
                         }
                     }
                     .buttonStyle(PressStyle())
                     if let last = store.data.lastAuto {
                         RowDivider()
                         SettingRow(icon: "calendar", title: store.t("lastAuto"), chevron: false) { Text(Fmt.short(last, store.lang) + " · " + Fmt.time(last)) }
+                    } else if let run = store.data.lastAutoRun {
+                        RowDivider()
+                        SettingRow(icon: "sms", title: store.t("lastRun"), chevron: false) { Text(Fmt.short(run, store.lang) + " · " + Fmt.time(run)) }
+                    } else if store.data.autoWaiting {
+                        RowDivider()
+                        SettingRow(icon: "sms", title: store.t("autoWaiting"), chevron: false) { EmptyView() }
                     }
                     RowDivider()
                     Button { store.update { $0.settings.onboarded = false } } label: {

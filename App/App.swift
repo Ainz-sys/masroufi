@@ -76,14 +76,18 @@ final class Store: ObservableObject {
     func logSMS(_ text: String) -> LogResult {
         var d = Persistence.load()
         let r = Ledger.log(text: text, into: &d)
+        d.lastAutoRun = Date()   // proof the automation works, even when the message wasn't a purchase
+        data = d
+        Persistence.save(d)
         if !r.added.isEmpty {
-            data = d
-            Persistence.save(d)
             WidgetCenter.shared.reloadAllTimelines()
             Notifier.announce(r, data: d)
         }
         return r
     }
+
+    /// The person finished setting up the automation in Shortcuts (iOS doesn't let apps check this themselves).
+    func confirmAuto() { update { $0.autoConfirmed = $0.autoConfirmed ?? Date() } }
 
     // Transactions
     /// Older bank messages pasted in: each is dated from its own text (or `undated`), so it comes off the right month.
@@ -145,7 +149,7 @@ final class Store: ObservableObject {
     }
 
     func wipe() {
-        update { d in d.transactions = []; d.merchantMap = [:]; d.notified = [:]; d.categories = Category.defaults; d.lastAuto = nil }
+        update { d in d.transactions = []; d.merchantMap = [:]; d.notified = [:]; d.categories = Category.defaults; d.lastAuto = nil; d.lastAutoRun = nil; d.autoConfirmed = nil }
     }
 }
 

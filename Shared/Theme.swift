@@ -75,9 +75,25 @@ enum AlxWeight {
     }
 }
 
+/// App-wide text size (Settings → Text size). Every Alexandria size is multiplied by `factor`;
+/// it stays 1 in the widget. Dynamic Type from iPhone Settings still applies on top.
+enum TextScale {
+    static var factor: CGFloat = 1
+
+    /// "auto" follows the screen: iPhone 17 Pro (402 pt wide) = 1, Pro Max (440 pt) ≈ 1.09, SE (375 pt) ≈ 0.93.
+    static func factor(for setting: String, screenWidth: CGFloat) -> CGFloat {
+        switch setting {
+        case "s": return 0.92
+        case "m": return 1
+        case "l": return 1.1
+        default: return min(1.1, max(0.9, screenWidth / 402))
+        }
+    }
+}
+
 extension Font {
     static func alx(_ size: CGFloat, _ weight: AlxWeight = .regular, relativeTo style: Font.TextStyle = .body) -> Font {
-        .custom(weight.postScript, size: size, relativeTo: style)
+        .custom(weight.postScript, size: size * TextScale.factor, relativeTo: style)
     }
 }
 

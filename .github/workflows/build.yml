@@ -77,18 +77,17 @@ jobs:
             sleep 15
             xcrun simctl terminate "$1" com.masroufi.app >/dev/null 2>&1 || true
           }
-          shoot() { # udid screen lang bg file [card pose "flip,yaw,pitch,scale"]
+          shoot() { # udid screen lang bg file [card pose "flip,yaw,pitch,scale"] [text size]
             xcrun simctl terminate "$1" com.masroufi.app >/dev/null 2>&1 || true
-            if [ -n "$6" ]; then
-              xcrun simctl launch "$1" com.masroufi.app -masroufiDemo "$2" -masroufiLang "$3" -masroufiBG "$4" -masroufiCardPose "$6" >/dev/null
-            else
-              xcrun simctl launch "$1" com.masroufi.app -masroufiDemo "$2" -masroufiLang "$3" -masroufiBG "$4" >/dev/null
-            fi
+            EXTRA=()
+            if [ -n "$6" ]; then EXTRA+=(-masroufiCardPose "$6"); fi
+            if [ -n "$7" ]; then EXTRA+=(-masroufiText "$7"); fi
+            xcrun simctl launch "$1" com.masroufi.app -masroufiDemo "$2" -masroufiLang "$3" -masroufiBG "$4" "${EXTRA[@]}" >/dev/null
             sleep 7
             xcrun simctl io "$1" screenshot "shots/$5.png" >/dev/null
           }
           prep "$UDID"
-          for s in ob0 ob1 ob2 ob3 ob4 ob5 today today-empty txs insights settings detail add add-paste newcat budget guide categories; do
+          for s in ob0 ob1 ob2 ob3 ob4 ob5 today today-empty txs insights settings detail add add-paste newcat budget guide guide-off categories; do
             shoot "$UDID" "$s" ar wine "$s"
           done
           shoot "$UDID" today en navy en-today
@@ -101,7 +100,12 @@ jobs:
           shoot "$UDID" settings ar wine xxxl-settings
           xcrun simctl ui "$UDID" content_size large
           SMALL=$(python3 .github/pick_sim.py small)
-          if [ -n "$SMALL" ]; then prep "$SMALL"; for s in today txs insights settings detail budget ob0 ob3 ob4; do shoot "$SMALL" "$s" ar wine "small-$s"; done; xcrun simctl shutdown "$SMALL" || true; fi
+          if [ -n "$SMALL" ]; then
+            prep "$SMALL"
+            for s in today txs insights settings detail budget ob0 ob3; do shoot "$SMALL" "$s" ar wine "small-$s"; done
+            for s in today settings; do shoot "$SMALL" "$s" ar wine "small-large-$s" "" l; done   # Text size: Large on the smallest screen
+            xcrun simctl shutdown "$SMALL" || true
+          fi
           MAX=$(python3 .github/pick_sim.py max)
           if [ -n "$MAX" ]; then
             prep "$MAX"

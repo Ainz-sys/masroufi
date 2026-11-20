@@ -11,6 +11,7 @@ struct OnboardingFlow: View {
     @State private var added = false
     @State private var budgetText = ""   // the person types their own monthly figure (or taps a preset)
     @State private var showSalary = false
+    @State private var openedShortcuts = false
     @FocusState private var focused: Bool
 
     private let count = 6
@@ -127,10 +128,18 @@ struct OnboardingFlow: View {
             case 1:
                 PrimaryButton(title: store.t("next")) { go(2) }
             case 2:
-                PrimaryButton(title: store.t("openShortcuts"), systemImage: "arrow.up.forward.app") {
-                    if let u = URL(string: "shortcuts://") { openURL(u) }
+                if openedShortcuts { // back from Shortcuts: say it's done and move on
+                    PrimaryButton(title: store.t("didSetupNext")) { store.confirmAuto(); go(3) }
+                    TextAction(title: store.t("openAgain"), color: p.label2, weight: .medium) {
+                        if let u = URL(string: "shortcuts://") { openURL(u) }
+                    }
+                } else {
+                    PrimaryButton(title: store.t("openShortcuts"), systemImage: "arrow.up.forward.app") {
+                        openedShortcuts = true
+                        if let u = URL(string: "shortcuts://") { openURL(u) }
+                    }
+                    TextAction(title: store.t("later"), color: p.label2, weight: .medium) { go(3) }
                 }
-                TextAction(title: store.t("later"), color: p.label2, weight: .medium) { go(3) }
             case 3:
                 PrimaryButton(title: store.t("next")) {
                     let v = Double(SMSParser.normalize(budgetText).replacingOccurrences(of: ",", with: "")) ?? 0

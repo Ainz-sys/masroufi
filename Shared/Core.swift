@@ -105,6 +105,8 @@ struct Settings: Codable {
     var notifyEach: Bool = true
     var onboarded: Bool = false
     var background: String = "wine"
+    /// "auto" (follows the iPhone's screen size), "s", "m" or "l".
+    var textSize: String = "auto"
 
     init() {}
     init(from decoder: Decoder) throws { // tolerant of missing keys from older versions
@@ -122,6 +124,7 @@ struct Settings: Codable {
         notifyEach = try c.decodeIfPresent(Bool.self, forKey: .notifyEach) ?? true
         onboarded = try c.decodeIfPresent(Bool.self, forKey: .onboarded) ?? false
         background = try c.decodeIfPresent(String.self, forKey: .background) ?? "wine"
+        textSize = try c.decodeIfPresent(String.self, forKey: .textSize) ?? "auto"
     }
 }
 
@@ -131,7 +134,14 @@ struct AppData: Codable {
     var merchantMap: [String: String] = [:]
     var transactions: [Transaction] = []
     var notified: [String: [String]] = [:]
-    var lastAuto: Date? = nil
+    var lastAuto: Date? = nil          // last transaction logged by the automation
+    var lastAutoRun: Date? = nil       // last time the automation ran at all (even for a message that isn't a purchase)
+    var autoConfirmed: Date? = nil     // the person said they finished setting the automation up
+
+    /// The automation counts as on once it has run, or once the person confirmed they set it up.
+    var autoOn: Bool { lastAuto != nil || lastAutoRun != nil || autoConfirmed != nil }
+    /// Set up, but no bank message has come through it yet.
+    var autoWaiting: Bool { autoConfirmed != nil && lastAuto == nil && lastAutoRun == nil }
 
     init() {}
     init(from decoder: Decoder) throws {
@@ -143,6 +153,8 @@ struct AppData: Codable {
         transactions = try c.decodeIfPresent([Transaction].self, forKey: .transactions) ?? []
         notified = try c.decodeIfPresent([String: [String]].self, forKey: .notified) ?? [:]
         lastAuto = try c.decodeIfPresent(Date.self, forKey: .lastAuto)
+        lastAutoRun = try c.decodeIfPresent(Date.self, forKey: .lastAutoRun)
+        autoConfirmed = try c.decodeIfPresent(Date.self, forKey: .autoConfirmed)
     }
 
     func category(_ id: String) -> Category {

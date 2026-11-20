@@ -663,7 +663,7 @@ struct GuideSteps: View {
     @Environment(\.palette) private var p
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            ForEach(1...5, id: \.self) { i in
+            ForEach(1...6, id: \.self) { i in
                 HStack(alignment: .top, spacing: 12) {
                     Text("\(i)").font(.alx(13.5, .semibold)).foregroundStyle(p.label)
                         .frame(width: 26, height: 26).background(Circle().fill(p.surface2))
@@ -682,6 +682,20 @@ struct GuideScreen: View {
     @EnvironmentObject var nav: Nav
     @Environment(\.palette) private var p
     @Environment(\.openURL) private var openURL
+    @Environment(\.dismiss) private var dismiss
+    @State private var openedShortcuts = false
+
+    func openShortcuts() {
+        openedShortcuts = true
+        if let u = URL(string: "shortcuts://") { openURL(u) }
+    }
+
+    func confirm() {
+        store.confirmAuto()
+        nav.show(store.t("autoMarked"))
+        dismiss()
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             NavBar(title: store.t("guide")) { BackButton() } trailing: { Color.clear.frame(width: 46, height: 46) }
@@ -690,6 +704,10 @@ struct GuideScreen: View {
                     Icon3D(name: "zap", size: 84, shadow: true).padding(.horizontal, 18).padding(.top, 4)
                     Text(store.t("ob3t")).font(.alx(26, .bold)).foregroundStyle(p.label).padding(.horizontal, 18).padding(.top, 8)
                     Text(store.t("ob3p")).font(.alx(15.5, .light)).foregroundStyle(p.label2).lineSpacing(5).padding(.horizontal, 18).padding(.top, 8)
+                    if store.data.autoOn {
+                        StatusPill(kind: .ok, text: store.data.autoWaiting ? store.t("autoWaiting") : store.t("on"))
+                            .padding(.horizontal, 18).padding(.top, 12)
+                    }
                     GuideSteps()
                     SurfaceGroup {
                         Button { nav.sheet = .add(paste: true) } label: { SettingRow(icon: "sms", title: store.t("testIt")) { EmptyView() } }
@@ -700,8 +718,14 @@ struct GuideScreen: View {
                 .padding(.bottom, 24)
             }
             BottomBar {
-                PrimaryButton(title: store.t("openShortcuts"), systemImage: "arrow.up.forward.app") {
-                    if let u = URL(string: "shortcuts://") { openURL(u) }
+                if store.data.autoOn {
+                    PrimaryButton(title: store.t("openShortcuts"), systemImage: "arrow.up.forward.app") { openShortcuts() }
+                } else if openedShortcuts { // back from Shortcuts: one tap to say it's done
+                    PrimaryButton(title: store.t("didSetup")) { confirm() }
+                    TextAction(title: store.t("openAgain"), color: p.label2, weight: .medium) { openShortcuts() }
+                } else {
+                    PrimaryButton(title: store.t("openShortcuts"), systemImage: "arrow.up.forward.app") { openShortcuts() }
+                    TextAction(title: store.t("alreadySet"), color: p.label2, weight: .medium) { confirm() }
                 }
             }
         }
