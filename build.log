@@ -1,0 +1,127 @@
+/Users/runner/work/masroufi/masroufi/Shared/Core.swift:136:47: error: expected hexadecimal code in braces after unicode escape
+/Users/runner/work/masroufi/masroufi/Shared/Core.swift:136:47: error: Expected hexadecimal code in braces after unicode escape
+/Users/runner/work/masroufi/masroufi/Shared/Core.swift:136:54: error: expected hexadecimal code in braces after unicode escape
+/Users/runner/work/masroufi/masroufi/Shared/Core.swift:136:54: error: Expected hexadecimal code in braces after unicode escape
+/Users/runner/work/masroufi/masroufi/Shared/Core.swift:136:60: error: expected hexadecimal code in braces after unicode escape
+/Users/runner/work/masroufi/masroufi/Shared/Core.swift:136:60: error: Expected hexadecimal code in braces after unicode escape
+-----
+    write-file /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Objects-normal/arm64/Masroufi.LinkFileList
+
+WriteAuxiliaryFile /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Objects-normal/arm64/Masroufi-OutputFileMap.json (in target 'Masroufi' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    write-file /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Objects-normal/arm64/Masroufi-OutputFileMap.json
+
+WriteAuxiliaryFile /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Masroufi.hmap (in target 'Masroufi' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    write-file /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Masroufi.hmap
+
+WriteAuxiliaryFile /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Masroufi.DependencyStaticMetadataFileList (in target 'Masroufi' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    write-file /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Masroufi.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Masroufi.DependencyMetadataFileList (in target 'Masroufi' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    write-file /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Masroufi.DependencyMetadataFileList
+
+WriteAuxiliaryFile /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Masroufi-project-headers.hmap (in target 'Masroufi' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    write-file /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Masroufi-project-headers.hmap
+
+WriteAuxiliaryFile /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Masroufi-own-target-headers.hmap (in target 'Masroufi' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    write-file /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Masroufi-own-target-headers.hmap
+
+WriteAuxiliaryFile /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Masroufi-generated-files.hmap (in target 'Masroufi' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    write-file /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Masroufi-generated-files.hmap
+
+WriteAuxiliaryFile /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Masroufi-all-target-headers.hmap (in target 'Masroufi' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    write-file /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Masroufi-all-target-headers.hmap
+
+WriteAuxiliaryFile /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Masroufi-all-non-framework-target-headers.hmap (in target 'Masroufi' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    write-file /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/Masroufi.build/Masroufi-all-non-framework-target-headers.hmap
+
+MkDir /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/Masroufi.app/PlugIns (in target 'Masroufi' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    /bin/mkdir -p /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/Masroufi.app/PlugIns
+
+MkDir /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/Masroufi.app (in target 'Masroufi' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    /bin/mkdir -p /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/Masroufi.app
+
+MkDir /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/assetcatalog_output/thinned (in target 'MasroufiWidget' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    /bin/mkdir -p /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/assetcatalog_output/thinned
+
+MkDir /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/assetcatalog_output/unthinned (in target 'MasroufiWidget' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    /bin/mkdir -p /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/assetcatalog_output/unthinned
+
+GenerateAssetSymbols /Users/runner/work/masroufi/masroufi/Shared/Media.xcassets (in target 'MasroufiWidget' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    /Applications/Xcode_26.3.app/Contents/Developer/usr/bin/actool /Users/runner/work/masroufi/masroufi/Shared/Media.xcassets --compile /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/MasroufiWidget.appex --output-format human-readable-text --notices --warnings --export-dependency-info /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/assetcatalog_dependencies --output-partial-info-plist /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/assetcatalog_generated_info.plist --compress-pngs --enable-on-demand-resources NO --standalone-icon-behavior all --development-region en --target-device iphone --target-device ipad --minimum-deployment-target 17.0 --platform iphoneos --bundle-identifier com.masroufi.app.widget --generate-swift-asset-symbol-extensions NO --generate-swift-asset-symbols /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/DerivedSources/GeneratedAssetSymbols.swift --generate-objc-asset-symbols /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/DerivedSources/GeneratedAssetSymbols.h --generate-asset-symbol-index /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/* com.apple.actool.compilation-results */
+/Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/DerivedSources/GeneratedAssetSymbols.h
+/Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/DerivedSources/GeneratedAssetSymbols.swift
+
+
+CpResource /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/MasroufiWidget.appex/PrivacyInfo.xcprivacy /Users/runner/work/masroufi/masroufi/Widget/PrivacyInfo.xcprivacy (in target 'MasroufiWidget' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Users/runner/work/masroufi/masroufi/Widget/PrivacyInfo.xcprivacy /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/MasroufiWidget.appex
+
+CpResource /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/MasroufiWidget.appex/Alexandria-SemiBold.ttf /Users/runner/work/masroufi/masroufi/Shared/Fonts/Alexandria-SemiBold.ttf (in target 'MasroufiWidget' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Users/runner/work/masroufi/masroufi/Shared/Fonts/Alexandria-SemiBold.ttf /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/MasroufiWidget.appex
+
+CpResource /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/MasroufiWidget.appex/Alexandria-Regular.ttf /Users/runner/work/masroufi/masroufi/Shared/Fonts/Alexandria-Regular.ttf (in target 'MasroufiWidget' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Users/runner/work/masroufi/masroufi/Shared/Fonts/Alexandria-Regular.ttf /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/MasroufiWidget.appex
+
+CpResource /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/MasroufiWidget.appex/Alexandria-Medium.ttf /Users/runner/work/masroufi/masroufi/Shared/Fonts/Alexandria-Medium.ttf (in target 'MasroufiWidget' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Users/runner/work/masroufi/masroufi/Shared/Fonts/Alexandria-Medium.ttf /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/MasroufiWidget.appex
+
+CpResource /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/MasroufiWidget.appex/Alexandria-Light.ttf /Users/runner/work/masroufi/masroufi/Shared/Fonts/Alexandria-Light.ttf (in target 'MasroufiWidget' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Users/runner/work/masroufi/masroufi/Shared/Fonts/Alexandria-Light.ttf /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/MasroufiWidget.appex
+
+CpResource /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/MasroufiWidget.appex/Alexandria-Bold.ttf /Users/runner/work/masroufi/masroufi/Shared/Fonts/Alexandria-Bold.ttf (in target 'MasroufiWidget' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Users/runner/work/masroufi/masroufi/Shared/Fonts/Alexandria-Bold.ttf /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/MasroufiWidget.appex
+
+CompileAssetCatalogVariant thinned /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/MasroufiWidget.appex /Users/runner/work/masroufi/masroufi/Shared/Media.xcassets (in target 'MasroufiWidget' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    /Applications/Xcode_26.3.app/Contents/Developer/usr/bin/actool /Users/runner/work/masroufi/masroufi/Shared/Media.xcassets --compile /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/assetcatalog_output/thinned --output-format human-readable-text --notices --warnings --export-dependency-info /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/assetcatalog_dependencies_thinned --output-partial-info-plist /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/assetcatalog_generated_info.plist_thinned --compress-pngs --enable-on-demand-resources NO --standalone-icon-behavior all --development-region en --target-device iphone --target-device ipad --minimum-deployment-target 17.0 --platform iphoneos
+/Users/runner/work/masroufi/masroufi/Shared/Core.swift:136:47: error: expected hexadecimal code in braces after unicode escape
+        var t = s.replacingOccurrences(of: "[\u064B-\u0652\u0640]", with: "", options: .regularExpression)
+                                              ^
+/Users/runner/work/masroufi/masroufi/Shared/Core.swift:136:54: error: expected hexadecimal code in braces after unicode escape
+        var t = s.replacingOccurrences(of: "[\u064B-\u0652\u0640]", with: "", options: .regularExpression)
+                                                     ^
+/Users/runner/work/masroufi/masroufi/Shared/Core.swift:136:60: error: expected hexadecimal code in braces after unicode escape
+        var t = s.replacingOccurrences(of: "[\u064B-\u0652\u0640]", with: "", options: .regularExpression)
+                                                           ^
+
+SwiftDriver MasroufiWidget normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MasroufiWidget' from project 'Masroufi')
+    cd /Users/runner/work/masroufi/masroufi
+    builtin-SwiftDriver -- /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MasroufiWidget -O -whole-module-optimization -enforce-exclusivity\=checked @/Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/Objects-normal/arm64/MasroufiWidget.SwiftFileList -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode_26.3.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.2.sdk -target arm64-apple-ios17.0 -g -module-cache-path /Users/runner/work/masroufi/masroufi/build/ModuleCache.noindex -Xfrontend -serialize-debugging-options -application-extension -swift-version 5 -I /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos -F /Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos -c -num-threads 3 -Xcc -ivfsstatcache -Xcc /Users/runner/work/masroufi/masroufi/build/SDKStatCaches.noindex/iphoneos26.2-23C57-dc75598d0054f22ec865fa860f139d722dd23b4ebda140f7210d155ff1243552.sdkstatcache -output-file-map /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/Objects-normal/arm64/MasroufiWidget-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/runner/work/masroufi/masroufi/build/ModuleCache.noindex -sdk-module-cache-path /Users/runner/work/masroufi/masroufi/build/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/Objects-normal/arm64/MasroufiWidget.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/runner/work/masroufi/masroufi/build/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/Objects-normal/arm64/MasroufiWidget_const_extract_protocols.json -Xcc -iquote -Xcc /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/MasroufiWidget-generated-files.hmap -Xcc -I/Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/MasroufiWidget-own-target-headers.hmap -Xcc -I/Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/MasroufiWidget-all-target-headers.hmap -Xcc -iquote -Xcc /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/MasroufiWidget-project-headers.hmap -Xcc -I/Users/runner/work/masroufi/masroufi/build/Build/Products/Release-iphoneos/include -Xcc -I/Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/DerivedSources-normal/arm64 -Xcc -I/Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/DerivedSources/arm64 -Xcc -I/Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/DerivedSources -emit-objc-header -emit-objc-header-path /Users/runner/work/masroufi/masroufi/build/Build/Intermediates.noindex/Masroufi.build/Release-iphoneos/MasroufiWidget.build/Objects-normal/arm64/MasroufiWidget-Swift.h -working-directory /Users/runner/work/masroufi/masroufi -no-emit-module-separately-wmo
+/Users/runner/work/masroufi/masroufi/Shared/Core.swift:136:47: error: Expected hexadecimal code in braces after unicode escape
+        var t = s.replacingOccurrences(of: "[\u064B-\u0652\u0640]", with: "", options: .regularExpression)
+                                              ^ (in target 'MasroufiWidget' from project 'Masroufi')
+/Users/runner/work/masroufi/masroufi/Shared/Core.swift:136:54: error: Expected hexadecimal code in braces after unicode escape
+        var t = s.replacingOccurrences(of: "[\u064B-\u0652\u0640]", with: "", options: .regularExpression)
+                                                     ^ (in target 'MasroufiWidget' from project 'Masroufi')
+/Users/runner/work/masroufi/masroufi/Shared/Core.swift:136:60: error: Expected hexadecimal code in braces after unicode escape
+        var t = s.replacingOccurrences(of: "[\u064B-\u0652\u0640]", with: "", options: .regularExpression)
+                                                           ^ (in target 'MasroufiWidget' from project 'Masroufi')
+
+** BUILD FAILED **
+
+
+The following build commands failed:
+	SwiftDriver MasroufiWidget normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MasroufiWidget' from project 'Masroufi')
+	Building project Masroufi with scheme Masroufi and configuration Release
+(2 failures)
