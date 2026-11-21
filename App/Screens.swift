@@ -67,7 +67,8 @@ struct MainShell: View {
                 let showBar = nav.path.isEmpty && !keyboardUp
                 ZStack {
                     // content scrolling under the clock / Dynamic Island fades out instead of colliding with it
-                    LinearGradient(colors: [p.bg, p.bg.opacity(0.85), p.bg.opacity(0)], startPoint: .top, endPoint: .bottom)
+                    LinearGradient(stops: [.init(color: p.bg, location: 0), .init(color: p.bg, location: 0.7),
+                                           .init(color: p.bg.opacity(0), location: 1)], startPoint: .top, endPoint: .bottom)
                         .frame(height: top + 4)
                         .frame(maxHeight: .infinity, alignment: .top)
                         .allowsHitTesting(false)
