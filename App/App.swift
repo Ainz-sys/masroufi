@@ -132,6 +132,23 @@ final class Store: ObservableObject {
 
     func deleteTx(_ id: String) { update { $0.transactions.removeAll { $0.id == id } } }
 
+    /// Renames a transaction. With `all`, every transaction from the same merchant gets the name, and new ones will too.
+    /// An empty name (or the original one) goes back to the merchant from the bank message.
+    func renameTx(_ id: String, to name: String, all: Bool) {
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        update { d in
+            guard let i = d.transactions.firstIndex(where: { $0.id == id }) else { return }
+            let tx = d.transactions[i]
+            let title: String? = (n.isEmpty || n == tx.merchant) ? nil : n
+            if all, !tx.merchantKey.isEmpty {
+                d.merchantNames[tx.merchantKey] = title
+                for j in d.transactions.indices where d.transactions[j].merchantKey == tx.merchantKey { d.transactions[j].title = title }
+            } else {
+                d.transactions[i].title = title
+            }
+        }
+    }
+
     // Categories
     func saveCategory(_ c: Category) {
         update { d in
@@ -149,7 +166,7 @@ final class Store: ObservableObject {
     }
 
     func wipe() {
-        update { d in d.transactions = []; d.merchantMap = [:]; d.notified = [:]; d.categories = Category.defaults; d.lastAuto = nil; d.lastAutoRun = nil; d.autoConfirmed = nil }
+        update { d in d.transactions = []; d.merchantMap = [:]; d.merchantNames = [:]; d.notified = [:]; d.categories = Category.defaults; d.lastAuto = nil; d.lastAutoRun = nil; d.autoConfirmed = nil }
     }
 }
 
@@ -194,7 +211,7 @@ enum Notifier {
             send(t0, b0 + "\n" + title)
             for a in r.alerts.dropFirst() { let (t1, b1) = alertText(a, d); send(t1, b1) }
         } else if d.settings.notifyEach {
-            send(title, (tx.merchant.isEmpty ? "" : tx.merchant + "\n") + monthLine(d))
+            send(title, (tx.displayName.isEmpty ? "" : tx.displayName + "\n") + monthLine(d))
         }
     }
 }
@@ -213,7 +230,7 @@ struct LogBankMessageIntent: AppIntent {
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
         let r = Store.shared.logSMS(message)
         guard let tx = r.added.last else { return .result(value: r.status) }
-        return .result(value: "logged \(Fmt.m(tx.amountHome)) QAR · \(tx.merchant)")
+        return .result(value: "logged \(Fmt.m(tx.amountHome)) QAR · \(tx.displayName)")
     }
 }
 

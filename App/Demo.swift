@@ -84,14 +84,16 @@ enum Demo {
     static func apply(nav: Nav) {
         switch screen ?? "" {
         case "txs": nav.tab = .txs
-        case "insights": nav.tab = .insights
-        case "settings": nav.tab = .settings
+        case "insights", "insights-day": nav.tab = .insights
+        case "settings", "settings-notif": nav.tab = .settings
         case "detail": nav.path = [.detail("demo-woqod")]
         case "add": nav.sheet = .add(paste: false)
         case "add-paste": nav.sheet = .add(paste: true)
         case "newcat": nav.sheet = .newCategory(forTx: nil)
         case "budget": nav.sheet = .budget
         case "guide", "guide-off": nav.path = [.guide]
+        case "rename": nav.path = [.detail("demo-woqod")]; nav.sheet = .rename("demo-woqod")
+        case "newcat-barber": nav.sheet = .newCategory(forTx: nil)
         case "categories": nav.path = [.categories]
         default: break
         }

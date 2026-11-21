@@ -88,7 +88,7 @@ struct BudgetWidgetView: View {
                         HStack(spacing: 8) {
                             Icon3D(name: e.lastCategory?.symbol ?? "receipt", size: 26)
                             VStack(alignment: .leading, spacing: 0) {
-                                Text(last.merchant.isEmpty ? (e.lastCategory?.name(e.lang) ?? "") : last.merchant)
+                                Text(last.displayName.isEmpty ? (e.lastCategory?.name(e.lang) ?? "") : last.displayName)
                                     .font(.alx(12.5, .medium)).foregroundStyle(p.label).lineLimit(1)
                                 Text("\u{200E}" + Fmt.m(last.amountHome) + (last.noTime ? "" : " · " + Fmt.time(last.date)))
                                     .font(.alx(11)).foregroundStyle(p.label2)

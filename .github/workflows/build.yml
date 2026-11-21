@@ -91,6 +91,17 @@ jobs:
             shoot "$UDID" "$s" ar wine "$s"
           done
           shoot "$UDID" today en navy en-today
+          # new in this version: icon suggested from a category name, renaming, a day picked on the chart
+          xcrun simctl terminate "$UDID" com.masroufi.app >/dev/null 2>&1 || true
+          xcrun simctl launch "$UDID" com.masroufi.app -masroufiDemo newcat-barber -masroufiLang ar -masroufiBG wine -masroufiCatName "حلاق" >/dev/null; sleep 7
+          xcrun simctl io "$UDID" screenshot shots/newcat-barber.png >/dev/null
+          xcrun simctl terminate "$UDID" com.masroufi.app >/dev/null 2>&1 || true
+          xcrun simctl launch "$UDID" com.masroufi.app -masroufiDemo rename -masroufiLang ar -masroufiBG wine -masroufiRename "محطة وقود الضعاين" >/dev/null; sleep 7
+          xcrun simctl io "$UDID" screenshot shots/rename.png >/dev/null
+          xcrun simctl terminate "$UDID" com.masroufi.app >/dev/null 2>&1 || true
+          xcrun simctl launch "$UDID" com.masroufi.app -masroufiDemo insights-day -masroufiLang ar -masroufiBG wine -masroufiChartDay -1 >/dev/null; sleep 7
+          xcrun simctl io "$UDID" screenshot shots/insights-day.png >/dev/null
+          shoot "$UDID" settings-notif ar wine settings-notif
           # the widest poses the card can take (worked out from its motion limits), on a tinted stage
           shoot "$UDID" today ar wine pose-flip "129,-0.08,0,0.846"
           shoot "$UDID" today ar wine pose-drag "0,-0.25,0.06,1"

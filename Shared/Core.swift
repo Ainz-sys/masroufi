@@ -26,9 +26,16 @@ struct Transaction: Codable, Identifiable, Hashable {
     var source: TxSource = .manual
     var excluded: Bool = false
     var note: String = ""
+    /// The person's own name for it (optional, so older saved data still loads).
+    var title: String? = nil
 
     /// Counts toward spending (expenses that were not excluded).
     var counts: Bool { kind == .debit && !excluded }
+    /// Shown everywhere: the person's name for it, else the merchant read from the bank message.
+    var displayName: String {
+        if let t = title?.trimmingCharacters(in: .whitespaces), !t.isEmpty { return t }
+        return merchant
+    }
 }
 
 struct Category: Codable, Identifiable, Hashable {
@@ -79,8 +86,152 @@ struct Category: Codable, Identifiable, Hashable {
         return raw.map { Category(id: $0.0, nameAR: $0.1, nameEN: $0.2, symbol: $0.3, color: $0.4, builtIn: true) }
     }()
 
-    static let symbolChoices = ["gym", "gift", "edu", "travel", "health", "home", "kids", "clothes", "games", "phone", "car", "coffee",
-                                "food", "grocery", "fuel", "shopping", "taxi", "cash", "bank", "receipt", "bulb", "calendar", "cloud", "palette"]
+    /// Icons offered for categories, in groups (L10n key of the group title, icon names).
+    struct IconGroup: Identifiable { let key: String; let icons: [String]; var id: String { key } }
+
+    static let iconGroups: [IconGroup] = [
+        IconGroup(key: "igFood", icons: ["food", "grocery", "coffee", "tea", "juice", "burger", "pizza", "shawarma", "chicken", "sushi", "meat", "fruit",
+                    "bakery", "dessert", "donut", "cake", "icecream", "popcorn", "takeout"]),
+        IconGroup(key: "igShop", icons: ["shopping", "online", "delivery", "card", "clothes", "dress", "shoes", "handbag", "watch", "sunglasses", "jewelry",
+                    "ring", "gift", "flowers"]),
+        IconGroup(key: "igCare", icons: ["barber", "haircut", "scissors", "nails", "makeup", "skincare", "soap", "toothbrush", "spa"]),
+        IconGroup(key: "igSubs", icons: ["subscription", "tv", "movies", "music", "headphones", "games", "joystick", "news", "cloud", "internet", "signal",
+                    "phone", "computer", "robot", "camera"]),
+        IconGroup(key: "igMove", icons: ["car", "fuel", "taxi", "bus", "metro", "bike", "scooter", "parking", "wrench", "oil", "carwash", "fine", "travel",
+                    "plane", "ship"]),
+        IconGroup(key: "igHome", icons: ["home", "key", "door", "couch", "bed", "furniture", "plant", "cleaning", "laundry", "repair", "tools", "candle",
+                    "bulb", "zap", "plug", "water", "gas", "receipt"]),
+        IconGroup(key: "igHealth", icons: ["health", "doctor", "hospital", "dentist", "glasses", "syringe", "bandage", "heart", "gym"]),
+        IconGroup(key: "igFamily", icons: ["kids", "baby", "teddy", "edu", "school", "backpack", "books", "pencil", "abacus", "dog", "cat", "pets"]),
+        IconGroup(key: "igFun", icons: ["ticket", "theater", "football", "tennis", "bowling", "swim", "tent", "beach", "desert", "camel", "party", "balloon",
+                   "puzzle", "guitar", "hotel", "luggage", "map", "kaaba"]),
+        IconGroup(key: "igMoney", icons: ["cash", "bank", "coin", "invest", "transfer", "budget", "legal", "id", "mail", "work", "printer", "tax", "loan",
+                     "charity", "mosque", "calendar"]),
+        IconGroup(key: "igOther", icons: ["other", "smoking", "label", "palette", "shield", "globe", "chart"]),
+    ]
+    static var symbolChoices: [String] { iconGroups.flatMap { $0.icons } }
+
+    /// Picks an icon from a category name the person types ("حلاق" → barber, "اشتراكات" → subscription, "Netflix" → tv).
+    static func suggestIcon(for name: String) -> String? {
+        let n = arabicFold(name.lowercased()).trimmingCharacters(in: .whitespaces)
+        guard n.count >= 2 else { return nil }
+        let words = n.split(whereSeparator: { " -_/,،.".contains($0) }).map(String.init)
+        func matches(_ raw: String) -> Bool {
+            let kw = arabicFold(raw.lowercased()).trimmingCharacters(in: .whitespaces)
+            if kw.contains(" ") { return n.contains(kw) }
+            if kw.unicodeScalars.allSatisfy({ $0.isASCII }) { // whole English words, plural allowed ("car" ≠ "card")
+                return n.range(of: "\\b" + NSRegularExpression.escapedPattern(for: kw) + "(s|es)?\\b", options: .regularExpression) != nil
+            }
+            return words.contains { w in // Arabic: the word, with or without "ال", or a longer form of it ("اشتراكات")
+                let bare = w.hasPrefix("ال") && w.count > 3 ? String(w.dropFirst(2)) : w
+                return w == kw || bare == kw || (kw.count >= 4 && (w.hasPrefix(kw) || bare.hasPrefix(kw)))
+            }
+        }
+        for (kws, icon) in iconKeywords where kws.contains(where: matches) { return icon }
+        return nil
+    }
+
+    /// Folds Arabic spelling variants (أ/إ/آ → ا, ة → ه, ى → ي) and drops diacritics, so "إشتراك" matches "اشتراك".
+    static func arabicFold(_ s: String) -> String {
+        var t = s.replacingOccurrences(of: "[\u064B-\u0652\u0640]", with: "", options: .regularExpression)
+        for (a, b) in [("أ", "ا"), ("إ", "ا"), ("آ", "ا"), ("ة", "ه"), ("ى", "ي")] { t = t.replacingOccurrences(of: a, with: b) }
+        return t
+    }
+
+    /// Checked in order: more specific words first.
+    static let iconKeywords: [([String], String)] = [
+        (["حلاق", "حلاقه", "صالون", "barber", "salon", "haircut"], "barber"),
+        (["اظافر", "مناكير", "nail"], "nails"),
+        (["مكياج", "تجميل", "makeup", "beauty", "cosmetic"], "makeup"),
+        (["عطور", "عطر", "perfume", "عنايه", "skincare"], "skincare"),
+        (["سبا", "مساج", "spa", "massage"], "spa"),
+        (["اشتراك", "subscription", "subscriptions"], "subscription"),
+        (["تسوق الكتروني", "تسوق اونلاين", "اونلاين", "اون لاين", "الكتروني", "online", "amazon", "امازون", "noon", "نون", "aliexpress", "temu", "shein", "شي ان"], "online"),
+        (["توصيل", "delivery", "طلبات", "talabat", "snoonu", "سنونو"], "takeout"),
+        (["نتفلكس", "netflix", "osn", "shahid", "شاهد", "تلفزيون", "tv"], "tv"),
+        (["سينما", "افلام", "movie", "cinema", "vox", "novo"], "movies"),
+        (["موسيقى", "سبوتيفاي", "spotify", "music", "anghami", "انغامي"], "music"),
+        (["العاب", "ألعاب", "game", "playstation", "xbox", "steam", "بلايستيشن"], "games"),
+        (["انترنت", "واي فاي", "internet", "wifi", "fiber", "فايبر"], "internet"),
+        (["جوال", "هاتف", "موبايل", "phone", "mobile", "ooredoo", "اوريدو", "vodafone", "فودافون"], "phone"),
+        (["ايكلاود", "icloud", "google one", "تخزين", "storage", "cloud"], "cloud"),
+        (["ذكاء اصطناعي", "chatgpt", "claude", "openai", " ai"], "robot"),
+        (["قهوه", "كافيه", "كوفي", "coffee", "cafe", "starbucks", "ستاربكس"], "coffee"),
+        (["كرك", "شاي", "karak", "tea"], "tea"),
+        (["عصير", "juice"], "juice"),
+        (["برجر", "burger", "ماكدونالدز", "mcdonald"], "burger"),
+        (["بيتزا", "pizza"], "pizza"),
+        (["شاورما", "shawarma"], "shawarma"),
+        (["حلويات", "حلا", "dessert", "sweets", "كيك", "cake"], "dessert"),
+        (["مخبز", "خبز", "bakery", "bread"], "bakery"),
+        (["لحم", "ملحمه", "قصاب", "butcher", "meat"], "meat"),
+        (["فواكه", "خضار", "fruit", "vegetable"], "fruit"),
+        (["مطعم", "مطاعم", "اكل", "طعام", "restaurant", "food", "dining"], "food"),
+        (["بقاله", "سوبرماركت", "مقاضي", "grocery", "supermarket", "carrefour", "كارفور", "لولو", "lulu", "ميرة", "meera"], "grocery"),
+        (["بطاقه", "بطاقات", "credit card", "card"], "card"),
+        (["ملابس", "clothes", "fashion", "ازياء"], "clothes"),
+        (["احذيه", "جزم", "shoes", "sneakers"], "shoes"),
+        (["شنط", "حقائب", "bags", "handbag"], "handbag"),
+        (["ساعات", "watch"], "watch"),
+        (["مجوهرات", "ذهب", "jewel", "gold"], "jewelry"),
+        (["هدايا", "هديه", "gift"], "gift"),
+        (["ورد", "زهور", "flower"], "flowers"),
+        (["تسوق", "shopping", "mall", "مول"], "shopping"),
+        (["بنزين", "وقود", "fuel", "petrol", "woqod", "وقود"], "fuel"),
+        (["تاكسي", "اوبر", "كروه", "taxi", "uber", "careem", "كريم", "karwa"], "taxi"),
+        (["باص", "حافله", "bus"], "bus"),
+        (["مترو", "metro"], "metro"),
+        (["مواقف", "باركنق", "parking"], "parking"),
+        (["مخالف", "مخالفات", "fine", "traffic"], "fine"),
+        (["غسيل سياره", "car wash", "carwash"], "carwash"),
+        (["صيانه", "تصليح", "maintenance", "service", "garage", "كراج"], "wrench"),
+        (["سياره", "سيارات", "car", "auto"], "car"),
+        (["طيران", "تذاكر طيران", "flight", "airline", "qatar airways"], "plane"),
+        (["فندق", "فنادق", "hotel"], "hotel"),
+        (["عمره", "حج", "umrah", "hajj"], "kaaba"),
+        (["سفر", "رحلات", "رحله", "travel", "trip", "vacation"], "travel"),
+        (["ايجار", "اجار", "rent"], "key"),
+        (["اثاث", "furniture", "ikea", "ايكيا"], "furniture"),
+        (["تنظيف", "خادمه", "cleaning", "maid"], "cleaning"),
+        (["مغسله", "غسيل ملابس", "laundry"], "laundry"),
+        (["كهرباء", "كهرما", "kahramaa", "electric"], "plug"),
+        (["ماء", "مياه", "water"], "water"),
+        (["غاز", "gas"], "gas"),
+        (["فواتير", "فاتوره", "bills", "bill"], "receipt"),
+        (["بيت", "منزل", "home", "house"], "home"),
+        (["اسنان", "dentist", "dental"], "dentist"),
+        (["نظارات", "عدسات", "optic", "glasses"], "glasses"),
+        (["مستشفى", "hospital", "clinic", "عياده"], "hospital"),
+        (["دكتور", "طبيب", "doctor"], "doctor"),
+        (["صيدليه", "دواء", "ادويه", "pharmacy", "medicine", "صحه", "health"], "health"),
+        (["نادي", "جيم", "رياضه", "gym", "fitness", "sport"], "gym"),
+        (["رضيع", "حفاضات", "baby", "diaper"], "baby"),
+        (["اطفال", "kids", "children", "toys", "العاب اطفال"], "kids"),
+        (["مدرسه", "مدارس", "school"], "school"),
+        (["كتب", "مكتبه", "books", "library", "jarir", "جرير"], "books"),
+        (["دورات", "تعليم", "جامعه", "education", "course", "university"], "edu"),
+        (["قطه", "قطط", "cat"], "cat"),
+        (["كلب", "dog"], "dog"),
+        (["حيوانات", "حيوان", "pet"], "pets"),
+        (["تذاكر", "فعاليات", "ticket", "event"], "ticket"),
+        (["كوره", "كرة", "football", "soccer"], "football"),
+        (["كشته", "تخييم", "camping", "camp"], "tent"),
+        (["بحر", "شاطئ", "beach"], "beach"),
+        (["حفلات", "حفله", "مناسبات", "party", "wedding", "عرس"], "party"),
+        (["ترفيه", "entertainment", "fun"], "theater"),
+        (["صدقه", "تبرع", "زكاه", "خيري", "charity", "donation", "zakat"], "charity"),
+        (["مسجد", "mosque"], "mosque"),
+        (["استثمار", "اسهم", "invest", "stocks"], "invest"),
+        (["ادخار", "توفير", "saving"], "coin"),
+        (["قرض", "قروض", "اقساط", "loan", "installment"], "loan"),
+        (["ضريبه", "رسوم", "tax", "fees"], "tax"),
+        (["تحويل", "حوالات", "transfer", "remittance"], "transfer"),
+        (["تامين", "insurance"], "shield"),
+        (["عمل", "شغل", "مكتب", "work", "office"], "work"),
+        (["دخان", "سجاير", "سجائر", "شيشه", "smoking", "cigarette", "vape"], "smoking"),
+        (["كاش", "نقد", "cash", "atm", "سحب"], "cash"),
+        (["بنك", "bank"], "bank"),
+    ]
     static let colorChoices = ["#CB2A5C", "#E8CB94", "#2BB389", "#3B82F6", "#8B5CF6", "#7C8798"]
 
     static let legacySymbols: [String: String] = [
@@ -132,6 +283,8 @@ struct AppData: Codable {
     var settings = Settings()
     var categories: [Category] = Category.defaults
     var merchantMap: [String: String] = [:]
+    /// Names the person gave to merchants (merchant key → name), applied to new transactions from them too.
+    var merchantNames: [String: String] = [:]
     var transactions: [Transaction] = []
     var notified: [String: [String]] = [:]
     var lastAuto: Date? = nil          // last transaction logged by the automation
@@ -150,6 +303,7 @@ struct AppData: Codable {
         categories = try c.decodeIfPresent([Category].self, forKey: .categories) ?? Category.defaults
         if categories.isEmpty { categories = Category.defaults }
         merchantMap = try c.decodeIfPresent([String: String].self, forKey: .merchantMap) ?? [:]
+        merchantNames = try c.decodeIfPresent([String: String].self, forKey: .merchantNames) ?? [:]
         transactions = try c.decodeIfPresent([Transaction].self, forKey: .transactions) ?? []
         notified = try c.decodeIfPresent([String: [String]].self, forKey: .notified) ?? [:]
         lastAuto = try c.decodeIfPresent(Date.self, forKey: .lastAuto)
@@ -309,7 +463,7 @@ enum Ledger {
         return Transaction(date: date, noTime: noTime, addedAt: now, amount: p.amount, currency: p.currency, amountHome: p.amountHome,
                            kind: p.kind, merchant: p.merchant, merchantKey: p.merchantKey, categoryID: cat, card: p.card,
                            account: p.account, balance: p.balance, bank: p.bank, raw: raw.trimmingCharacters(in: .whitespacesAndNewlines),
-                           source: .sms)
+                           source: .sms, title: data.merchantNames[p.merchantKey])
     }
 
     static func isDuplicate(_ d: AppData, _ p: ParsedSMS, now: Date) -> Bool {
@@ -422,11 +576,11 @@ enum Ledger {
             if let f = s.first, "=+-@".contains(f) { s = "'" + s } // stop spreadsheet formulas
             return s.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" || $0 == "\r" }) ? "\"" + s.replacingOccurrences(of: "\"", with: "\"\"") + "\"" : s
         }
-        var rows = ["Date,Time,Merchant,Category,Amount (QAR),Original amount,Currency,Type,Counted,Card,Account,Bank,Source,Note"]
+        var rows = ["Date,Time,Name,Category,Amount (QAR),Original amount,Currency,Type,Counted,Card,Account,Bank,Source,Note,Merchant in message"]
         for x in d.transactions.sorted(by: { $0.date < $1.date }) {
-            rows.append([key(x.date), x.noTime ? "" : Fmt.time(x.date), x.merchant, d.category(x.categoryID).name(lang),
+            rows.append([key(x.date), x.noTime ? "" : Fmt.time(x.date), x.displayName, d.category(x.categoryID).name(lang),
                          String(format: "%.2f", x.amountHome), String(x.amount), x.currency, x.kind.rawValue, x.counts ? "yes" : "no",
-                         x.card, x.account, x.bank, x.source.rawValue, x.note].map(q).joined(separator: ","))
+                         x.card, x.account, x.bank, x.source.rawValue, x.note, x.merchant].map(q).joined(separator: ","))
         }
         return "\u{FEFF}" + rows.joined(separator: "\r\n") + "\r\n"
     }

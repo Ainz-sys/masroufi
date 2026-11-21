@@ -115,6 +115,7 @@ struct SheetHost: View {
             case .newCategory(let tx): CategoryEditorSheet(categoryID: nil, forTx: tx)
             case .editCategory(let id): CategoryEditorSheet(categoryID: id, forTx: nil)
             case .budget: BudgetSheet()
+            case .rename(let id): RenameSheet(txID: id)
             }
         }
         .environmentObject(store)
@@ -305,7 +306,7 @@ struct TransactionsScreen: View {
         let list = store.data.transactions.filter { tx in
             if let f = nav.txFilter, tx.categoryID != f { return false }
             if q.isEmpty { return true }
-            return tx.merchant.lowercased().contains(q) || Fmt.m(tx.amountHome).contains(q) || tx.note.lowercased().contains(q)
+            return tx.displayName.lowercased().contains(q) || tx.merchant.lowercased().contains(q) || Fmt.m(tx.amountHome).contains(q) || tx.note.lowercased().contains(q)
                 || store.data.category(tx.categoryID).name(lang).lowercased().contains(q)
         }
         let g = Dictionary(grouping: list) { Calendar.current.startOfDay(for: $0.date) }
@@ -402,6 +403,9 @@ struct InsightsScreen: View {
     @EnvironmentObject var store: Store
     @EnvironmentObject var nav: Nav
     @Environment(\.palette) private var p
+    @State private var selectedDay: Date? = Demo.value("-masroufiChartDay").flatMap({ Int($0) }).flatMap {
+        Calendar.current.date(byAdding: .day, value: $0, to: Calendar.current.startOfDay(for: Date()))
+    }
 
     struct Stats {
         var start = Date(), cycleStart = Date(), end = Date(), days = 30
@@ -439,7 +443,7 @@ struct InsightsScreen: View {
         s.byCategory = byCat.map { CategoryStat(category: d.category($0.key), amount: $0.value) }.sorted { $0.amount > $1.amount }
         let byMerchant = Dictionary(grouping: inCycle.filter { !$0.merchant.isEmpty }, by: { $0.merchantKey.isEmpty ? $0.merchant : $0.merchantKey })
         let stats: [MerchantStat] = byMerchant.values.map { (txs: [Transaction]) -> MerchantStat in
-            MerchantStat(name: txs[0].merchant, icon: d.category(txs[0].categoryID).symbol, amount: txs.reduce(0.0) { $0 + $1.amountHome }, count: txs.count)
+            MerchantStat(name: (txs.max { $0.date < $1.date } ?? txs[0]).displayName, icon: d.category(txs[0].categoryID).symbol, amount: txs.reduce(0.0) { $0 + $1.amountHome }, count: txs.count)
         }
         s.merchants = Array(stats.sorted { $0.amount > $1.amount }.prefix(5))
         return s
@@ -460,6 +464,7 @@ struct InsightsScreen: View {
                         if showPace(s) { Text(store.t("budgetLine")).font(.alx(13)).foregroundStyle(p.label2) }
                     }
                     chart(s)
+                    if let day = selectedDay { dayList(day) }
                     if !s.byCategory.isEmpty {
                         SectionHeader(store.t("byCat"))
                         SurfaceGroup {
@@ -550,37 +555,113 @@ struct InsightsScreen: View {
         return pace(s) > 0 && top > 0 && pace(s) <= 3 * top
     }
 
+    struct ChartDay: Identifiable { let key: String; let day: Date; let value: Double?; var id: String { key } }
+
+    /// Every day of the chart (tracking start → end of the budget month); days still to come have no value.
+    func chartDays(_ s: Stats) -> [ChartDay] {
+        let cal = Calendar.current
+        let values = Dictionary(s.perDay.map { (Ledger.key($0.day), $0.value) }, uniquingKeysWith: { a, _ in a })
+        var out: [ChartDay] = []
+        var d = cal.startOfDay(for: s.start)
+        while d < s.end, out.count < 62 {
+            let k = Ledger.key(d)
+            out.append(ChartDay(key: k, day: d, value: values[k]))
+            d = cal.date(byAdding: .day, value: 1, to: d) ?? s.end
+        }
+        return out
+    }
+
+    func select(_ key: String, in days: [ChartDay]) {
+        guard let item = days.first(where: { $0.key == key }), item.value != nil else { return }
+        UISelectionFeedbackGenerator().selectionChanged()
+        withAnimation(.easeOut(duration: 0.15)) { selectedDay = selectedDay == item.day ? nil : item.day }
+    }
+
+    /// Per-day bars. Tap a day: it stays highlighted, its total shows above the chart and its transactions below it.
     func chart(_ s: Stats) -> some View {
         let budget = showPace(s) ? pace(s) : 0
         let todayStart = Calendar.current.startOfDay(for: Date())
-        return Chart {
-            ForEach(s.perDay) { item in
-                BarMark(x: .value("Day", item.day, unit: .day), y: .value("QAR", item.value))
-                    .foregroundStyle(item.day == todayStart ? Tok.tint : (budget > 0 && item.value > budget ? Tok.warning : p.label3.opacity(0.7)))
-                    .cornerRadius(3)
+        let days = chartDays(s)
+        let keys = days.map(\.key)
+        let sel = selectedDay
+        let selItem = days.first { $0.day == sel }
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                if let it = selItem, let v = it.value {
+                    Text(Fmt.day(it.day, store.lang)).font(.alx(14.5, .semibold)).foregroundStyle(p.label).lineLimit(1)
+                    Spacer(minLength: 6)
+                    Text("\u{200E}" + Fmt.m(v) + " " + store.t("cur")).font(.alx(15, .semibold)).monospacedDigit().foregroundStyle(p.label)
+                } else {
+                    Image(systemName: "hand.tap").font(.system(size: 13, weight: .semibold)).foregroundStyle(p.label3)
+                    Text(store.t("chartHint")).font(.alx(13)).foregroundStyle(p.label3)
+                    Spacer(minLength: 0)
+                }
             }
-            if budget > 0 {
-                RuleMark(y: .value("Budget", budget))
-                    .foregroundStyle(p.label2)
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+            .padding(.horizontal, 6).frame(minHeight: 28)
+            Chart {
+                ForEach(days) { item in
+                    if let v = item.value {
+                        BarMark(x: .value("Day", item.key), y: .value("QAR", v), width: .ratio(0.72))
+                            .foregroundStyle(item.day == todayStart ? Tok.tint : (budget > 0 && v > budget ? Tok.warning : p.label3.opacity(0.7)))
+                            .opacity(sel == nil || sel == item.day ? 1 : 0.3)
+                            .cornerRadius(3)
+                            .accessibilityLabel(Text(Fmt.day(item.day, store.lang)))
+                            .accessibilityValue(Text(Fmt.m(v) + " " + store.t("cur")))
+                    }
+                }
+                if budget > 0 {
+                    RuleMark(y: .value("Budget", budget))
+                        .foregroundStyle(p.label2)
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                }
+            }
+            // time runs right-to-left in Arabic: the order is set here, so taps map to the right day in both languages
+            .chartXScale(domain: store.lang == .ar ? Array(keys.reversed()) : keys)
+            .chartYAxis(.hidden)
+            .chartXAxis(.hidden)
+            .chartOverlay { proxy in
+                GeometryReader { geo in
+                    Rectangle().fill(Color.clear).contentShape(Rectangle())
+                        .onTapGesture { location in
+                            guard let frame = proxy.plotFrame else { return }
+                            let x = location.x - geo[frame].origin.x
+                            if let key: String = proxy.value(atX: x) { select(key, in: days) }
+                        }
+                }
+            }
+            .environment(\.layoutDirection, .leftToRight)
+            .frame(height: 150)
+            .overlay(alignment: .bottom) {
+                HStack {
+                    Text(Fmt.short(s.start, store.lang))
+                    Spacer()
+                    Text(Fmt.short(s.end.addingTimeInterval(-86400), store.lang))
+                }
+                .font(.alx(12)).foregroundStyle(p.label3)
+                .offset(y: 20)
             }
         }
-        .chartXScale(domain: s.start...s.end)
-        .chartYAxis(.hidden)
-        .chartXAxis(.hidden)
-        .frame(height: 150)
-        .overlay(alignment: .bottom) {
-            HStack {
-                Text(Fmt.short(s.start, store.lang))
-                Spacer()
-                Text(Fmt.short(s.end.addingTimeInterval(-86400), store.lang))
-            }
-            .font(.alx(12)).foregroundStyle(p.label3)
-            .offset(y: 20)
-        }
-        .padding(.horizontal, 12).padding(.top, 14).padding(.bottom, 30)
+        .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 30)
         .background(p.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .padding(.horizontal, 18)
+    }
+
+    /// The transactions of the day picked on the chart.
+    @ViewBuilder func dayList(_ day: Date) -> some View {
+        let txs = Ledger.transactions(store.data, on: day)
+        SectionHeader(title: store.t("dayTx", ["d": Fmt.short(day, store.lang)])) {
+            Text(store.t("txCount", ["n": "\(txs.count)"])).font(.alx(13)).foregroundStyle(p.label2)
+        }
+        if txs.isEmpty {
+            Text(store.t("noDayTx")).font(.alx(14)).foregroundStyle(p.label2).padding(.horizontal, 22)
+        } else {
+            SurfaceGroup {
+                ForEach(txs) { tx in
+                    if tx.id != txs.first?.id { RowDivider() }
+                    Button { nav.path.append(.detail(tx.id)) } label: { TxRow(tx: tx) }.buttonStyle(PressStyle())
+                }
+            }
+        }
     }
 
     func categoryRow(_ item: CategoryStat, total: Double) -> some View {
@@ -665,7 +746,7 @@ struct SettingsScreen: View {
     @EnvironmentObject var nav: Nav
     @Environment(\.palette) private var p
     @State private var confirmWipe = false
-    @State private var notificationsDenied = false
+    @State private var notifStatus: UNAuthorizationStatus? = nil
     @Environment(\.openURL) private var openURL
 
     private struct BG: Identifiable { let id: String; let key: String; let color: Color }
@@ -674,6 +755,7 @@ struct SettingsScreen: View {
 
     var body: some View {
         let st = store.data.settings
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(spacing: 0) {
                 TopBar(title: store.t("settings"), bottom: 0) { EmptyView() }
@@ -715,20 +797,41 @@ struct SettingsScreen: View {
                         SettingRow(icon: "calendar", title: store.t("salaryDay")) { Text("\(st.salaryDay)") }
                     }
                     .buttonStyle(PressStyle())
-                    RowDivider()
-                    toggleRow("bell", store.t("alert80d"), \.alert80)
-                    RowDivider()
-                    toggleRow("bell", store.t("alert100d"), \.alert100)
-                    RowDivider()
-                    toggleRow("sms", store.t("perTx"), \.notifyEach)
-                    if notificationsDenied {
+                }
+
+                SectionHeader(store.t("notifications"), strong: false).id("notif")
+                SurfaceGroup {
+                    Button { notifTapped() } label: {
+                        SettingRow(icon: "bell", title: store.t("notifStatus"), chevron: !notifOn) {
+                            if notifOn {
+                                Text(store.t("notifOnS")).font(.alx(15, .semibold)).foregroundStyle(Tok.positive)
+                            } else if notifStatus == .denied {
+                                Text(store.t("notifOffS")).font(.alx(15, .semibold)).foregroundStyle(Tok.warning)
+                            } else {
+                                Text(store.t("notifAsk")).font(.alx(15, .semibold)).foregroundStyle(Tok.tintInk)
+                            }
+                        }
+                    }
+                    .buttonStyle(PressStyle())
+                    if notifStatus == .denied {
                         RowDivider()
-                        Button { if let u = URL(string: UIApplication.openSettingsURLString) { openURL(u) } } label: {
+                        Button { openSystemSettings() } label: {
                             Text(store.t("notifOff")).font(.alx(14.5)).foregroundStyle(Tok.warning).multilineTextAlignment(.leading)
                                 .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading).padding(.horizontal, 16)
                         }
                     }
+                    RowDivider()
+                    toggleRow("cash", store.t("alert80d"), \.alert80)
+                    RowDivider()
+                    toggleRow("zap", store.t("alert100d"), \.alert100)
+                    RowDivider()
+                    toggleRow("receipt", store.t("perTx"), \.notifyEach)
+                    RowDivider()
+                    Button { sendTest() } label: { SettingRow(icon: "sms", title: store.t("testNotif"), chevron: false) { EmptyView() } }
+                        .buttonStyle(PressStyle())
                 }
+                Text(store.t("notifFoot")).font(.alx(13)).foregroundStyle(p.label2)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 22).padding(.top, 8)
 
                 SectionHeader(store.t("categories"), strong: false)
                 SurfaceGroup {
@@ -793,9 +896,42 @@ struct SettingsScreen: View {
             .padding(.bottom, 96)
         }
         .scrollIndicators(.hidden)
-        .task {
-            let s = await UNUserNotificationCenter.current().notificationSettings()
-            notificationsDenied = s.authorizationStatus == .denied
+        .onAppear { // screenshot check of the notifications section
+            if Demo.screen == "settings-notif" { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { proxy.scrollTo("notif", anchor: .top) } }
+        }
+        }
+        .task { await refreshNotif() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            Task { await refreshNotif() }   // back from iPhone Settings
+        }
+    }
+
+    var notifOn: Bool {
+        guard let s = notifStatus else { return false }
+        return s == .authorized || s == .provisional || s == .ephemeral
+    }
+
+    func refreshNotif() async {
+        let s = await UNUserNotificationCenter.current().notificationSettings()
+        notifStatus = s.authorizationStatus
+    }
+
+    func openSystemSettings() {
+        if let u = URL(string: UIApplication.openSettingsURLString) { openURL(u) }
+    }
+
+    /// Off because never asked: ask now. Turned off in iPhone Settings: open them.
+    func notifTapped() {
+        if notifStatus == .denied { openSystemSettings(); return }
+        guard !notifOn else { return }
+        Task { _ = await Notifier.requestPermission(); await refreshNotif() }
+    }
+
+    func sendTest() {
+        Task {
+            if !notifOn { _ = await Notifier.requestPermission(); await refreshNotif() }
+            if notifStatus == .denied { openSystemSettings(); return }
+            Notifier.send(store.t("testNotifT"), store.t("testNotifB"))
         }
     }
 

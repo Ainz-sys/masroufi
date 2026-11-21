@@ -11,6 +11,7 @@ enum SheetRoute: Identifiable {
     case newCategory(forTx: String?)
     case editCategory(String)
     case budget
+    case rename(String)
 
     var id: String {
         switch self {
@@ -18,6 +19,7 @@ enum SheetRoute: Identifiable {
         case .newCategory(let t): return "new-\(t ?? "")"
         case .editCategory(let c): return "edit-\(c)"
         case .budget: return "budget"
+        case .rename(let t): return "rename-\(t)"
         }
     }
 }
@@ -200,7 +202,7 @@ struct TxRow: View {
         HStack(spacing: 14) {
             Icon3D(name: c.symbol, size: 46, shadow: true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(tx.merchant.isEmpty ? c.name(store.lang) : tx.merchant)
+                Text(tx.displayName.isEmpty ? c.name(store.lang) : tx.displayName)
                     .font(.alx(16.5, .semibold)).foregroundStyle(p.label).lineLimit(2).multilineTextAlignment(.leading)
                 Text(c.name(store.lang) + (tx.noTime ? "" : " · " + Fmt.time(tx.date)))
                     .font(.alx(14, relativeTo: .subheadline)).foregroundStyle(p.label2).lineLimit(1)

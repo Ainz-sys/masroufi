@@ -115,7 +115,18 @@ struct DetailScreen: View {
                 HStack(spacing: 14) {
                     Icon3D(name: c.symbol, size: 64, shadow: true)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(tx.merchant.isEmpty ? c.name(lang) : tx.merchant).font(.alx(21, .bold)).foregroundStyle(p.label)
+                        Button { nav.sheet = .rename(tx.id) } label: { // tap the name to rename it
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text(tx.displayName.isEmpty ? c.name(lang) : tx.displayName).font(.alx(21, .bold)).foregroundStyle(p.label)
+                                    .multilineTextAlignment(.leading)
+                                Image(systemName: "pencil").font(.system(size: 15, weight: .semibold)).foregroundStyle(Tok.tintInk)
+                            }
+                        }
+                        .buttonStyle(PressStyle())
+                        .accessibilityHint(store.t("rename"))
+                        if tx.title != nil, !tx.merchant.isEmpty {
+                            Text(tx.merchant).font(.alx(13)).foregroundStyle(p.label3).lineLimit(1)
+                        }
                         Text(Fmt.day(tx.date, lang) + (tx.noTime ? "" : " · " + Fmt.time(tx.date))).font(.alx(14.5)).foregroundStyle(p.label2)
                     }
                 }
@@ -159,7 +170,7 @@ struct DetailScreen: View {
 
                 SurfaceGroup {
                     if !tx.merchantKey.isEmpty {
-                        ToggleRow(title: store.t("remember", ["c": c.name(lang), "m": tx.merchantKey]), isOn: Binding(
+                        ToggleRow(title: store.t("remember", ["c": c.name(lang), "m": tx.displayName.isEmpty ? tx.merchantKey : tx.displayName]), isOn: Binding(
                             get: { store.data.merchantMap[tx.merchantKey] == tx.categoryID },
                             set: { _ in store.toggleRemember(txID) }))
                         RowDivider()
@@ -206,6 +217,73 @@ struct DetailScreen: View {
         if !tx.bank.isEmpty { rows.append([store.t("bank"), tx.bank]) }
         rows.append([store.t("source"), tx.source == .sms ? store.t("sms") : store.t("manual")])
         return rows
+    }
+}
+
+// MARK: - Rename
+
+/// Give a transaction a name you'll recognise. Optionally for every transaction from that merchant, now and later.
+struct RenameSheet: View {
+    @EnvironmentObject var store: Store
+    @EnvironmentObject var nav: Nav
+    @Environment(\.palette) private var p
+    @Environment(\.dismiss) private var dismiss
+    let txID: String
+    @State private var name = ""
+    @State private var all = true
+    @FocusState private var focused: Bool
+
+    var tx: Transaction? { store.data.transactions.first { $0.id == txID } }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                NavBar(title: store.t("rename")) {
+                    TextAction(title: store.t("cancel"), color: p.label2, weight: .medium) { dismiss() }
+                } trailing: {
+                    TextAction(title: store.t("save")) { save() }
+                }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        FieldBox(label: store.t("txName")) {
+                            TextField("", text: $name, prompt: Text(tx?.merchant ?? "").foregroundColor(p.label3))
+                                .font(.alx(17, .medium)).foregroundStyle(p.label)
+                                .focused($focused).submitLabel(.done).onSubmit(save)
+                        }
+                        if let tx, !tx.merchant.isEmpty {
+                            Text(store.t("origName", ["m": tx.merchant])).font(.alx(13)).foregroundStyle(p.label2)
+                                .padding(.horizontal, 22).padding(.top, 8)
+                        }
+                        if let tx, !tx.merchantKey.isEmpty {
+                            SurfaceGroup { ToggleRow(title: store.t("renameAll"), isOn: $all) }.padding(.top, 16)
+                        }
+                        if tx?.title != nil {
+                            SurfaceGroup {
+                                Button { name = ""; save() } label: {
+                                    Text(store.t("restoreName")).font(.alx(16)).foregroundStyle(Tok.tintInk).frame(maxWidth: .infinity, minHeight: 52)
+                                }
+                            }
+                            .padding(.top, 14)
+                        }
+                    }
+                    .padding(.bottom, 24)
+                }
+                BottomBar { PrimaryButton(title: store.t("save")) { save() } }
+            }
+            .background(p.bg.ignoresSafeArea())
+            .toolbar(.hidden, for: .navigationBar)
+            .onAppear {
+                name = Demo.value("-masroufiRename") ?? tx?.title ?? tx?.merchant ?? ""
+                if !Demo.active { focused = true }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    func save() {
+        store.renameTx(txID, to: name, all: all)
+        nav.show(store.t("saved"))
+        dismiss()
     }
 }
 
@@ -397,7 +475,8 @@ struct CategoryEditorSheet: View {
     let categoryID: String?
     let forTx: String?
     @State private var name = ""
-    @State private var icon = "gym"
+    @State private var icon = "other"
+    @State private var autoIcon = true     // follows the name until the person picks an icon
     @State private var color = Category.colorChoices[2]
     @State private var budgetText = ""
     @State private var alert = true
@@ -420,20 +499,31 @@ struct CategoryEditorSheet: View {
                         token.frame(maxWidth: .infinity).padding(.top, 8)
                         FieldBox(label: store.t("name")) {
                             TextField("", text: $name).font(.alx(16)).foregroundStyle(p.label).focused($focused).submitLabel(.done)
-                        }
-                        Text(store.t("icon")).font(.alx(13)).foregroundStyle(p.label2).padding(.horizontal, 22).padding(.top, 14).padding(.bottom, 6)
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 6), spacing: 8) {
-                            ForEach(Category.symbolChoices, id: \.self) { s in
-                                Button { withAnimation(.easeOut(duration: 0.15)) { icon = s } } label: {
-                                    Icon3D(name: s, size: 34)
-                                        .frame(maxWidth: .infinity).aspectRatio(1, contentMode: .fit)
-                                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(icon == s ? p.tintContainer : p.surface2))
-                                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(icon == s ? Tok.tint : Color.clear, lineWidth: 2))
+                                .onChange(of: name) { _, v in
+                                    guard autoIcon, let s = Category.suggestIcon(for: v), s != icon else { return }
+                                    withAnimation(.easeOut(duration: 0.2)) { icon = s }
                                 }
-                                .buttonStyle(PressStyle())
-                            }
                         }
-                        .padding(.horizontal, 18)
+                        Text(store.t("icon") + " · " + store.t("iconHint")).font(.alx(13)).foregroundStyle(p.label2)
+                            .padding(.horizontal, 22).padding(.top, 14)
+                        ForEach(Category.iconGroups) { group in
+                            Text(store.t(group.key)).font(.alx(12.5, .medium)).foregroundStyle(p.label3)
+                                .padding(.horizontal, 22).padding(.top, 12).padding(.bottom, 6)
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 6), spacing: 8) {
+                                ForEach(group.icons, id: \.self) { s in
+                                    Button { autoIcon = false; withAnimation(.easeOut(duration: 0.15)) { icon = s } } label: {
+                                        Icon3D(name: s, size: 34)
+                                            .frame(maxWidth: .infinity).aspectRatio(1, contentMode: .fit)
+                                            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(icon == s ? p.tintContainer : p.surface2))
+                                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(icon == s ? Tok.tint : Color.clear, lineWidth: 2))
+                                    }
+                                    .buttonStyle(PressStyle())
+                                    .accessibilityLabel(s)
+                                    .accessibilityAddTraits(icon == s ? .isSelected : [])
+                                }
+                            }
+                            .padding(.horizontal, 18)
+                        }
                         Text(store.t("color")).font(.alx(13)).foregroundStyle(p.label2).padding(.horizontal, 22).padding(.top, 14).padding(.bottom, 6)
                         HStack {
                             ForEach(Category.colorChoices, id: \.self) { hex in
@@ -503,7 +593,9 @@ struct CategoryEditorSheet: View {
     }
 
     func load() {
+        if let demo = Demo.value("-masroufiCatName") { name = demo }   // screenshot check of the icon suggestion
         guard let c = existing else { return }
+        autoIcon = false
         name = c.name(store.lang); icon = c.symbol; color = c.color; alert = c.alertAt80
         budgetText = c.monthlyBudget.map { Fmt.m0($0).replacingOccurrences(of: ",", with: "") } ?? ""
     }
