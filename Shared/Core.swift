@@ -133,7 +133,7 @@ struct Category: Codable, Identifiable, Hashable {
 
     /// Folds Arabic spelling variants (أ/إ/آ → ا, ة → ه, ى → ي) and drops diacritics, so "إشتراك" matches "اشتراك".
     static func arabicFold(_ s: String) -> String {
-        var t = s.replacingOccurrences(of: "[\u064B-\u0652\u0640]", with: "", options: .regularExpression)
+        var t = s.replacingOccurrences(of: "[\\u064B-\\u0652\\u0640]", with: "", options: .regularExpression)
         for (a, b) in [("أ", "ا"), ("إ", "ا"), ("آ", "ا"), ("ة", "ه"), ("ى", "ي")] { t = t.replacingOccurrences(of: a, with: b) }
         return t
     }
