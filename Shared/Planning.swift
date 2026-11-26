@@ -228,8 +228,9 @@ extension Ledger {
         guard n > 0 else { return [] }
         return cur.compactMap { id, v in
             let avg = (sums[id] ?? 0) / Double(n)
-            guard avg > 0 else { return nil }
-            let projected = v / elapsed * total
+            guard avg >= 50, elapsed >= 5 else { return nil }
+            // flexible spending is scaled to the whole month; rent and bills are already paid in full
+            let projected = group(of: id, in: d) == .flex ? v / elapsed * total : v
             let cat = d.category(id)
             return CategoryChange(id: id, name: cat.name(lang), icon: cat.symbol, pct: Int(((projected / avg) - 1) * 100), now: v)
         }

@@ -40,7 +40,7 @@ extension L10n {
         // add
         "receiptTab": ("صوّر إيصال", "Scan receipt"), "pasteTab": ("الصق رسالة", "Paste SMS"),
         "saveAmt": ("احفظ · {a} ر.ق", "Save · QAR {a}"), "scanCam": ("صوّر الإيصال", "Scan the receipt"), "pickPhoto": ("اختر صورة من الألبوم", "Choose a photo"),
-        "receiptHint": ("نقرأ المبلغ والتاجر والتاريخ من الصورة على جوالك — ما تطلع لأي مكان.", "We read the amount, merchant and date on your phone — the photo never leaves it."),
+        "receiptHint": ("نقرأ المبلغ والتاجر والتاريخ من الصورة على جوالك، والصورة ما تطلع لأي مكان.", "We read the amount, merchant and date on your phone — the photo never leaves it."),
         "receiptRead": ("قرأناها من الإيصال — تأكد منها", "Read from the receipt — check it"),
         "receiptFail": ("ما قدرنا نقرأ مبلغ من الصورة، اكتبه بنفسك", "Couldn't read an amount — type it in"),
         "reading": ("نقرأ الإيصال…", "Reading the receipt…"), "noCamera": ("الكاميرا غير متاحة هنا", "The camera isn't available here"),

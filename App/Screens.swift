@@ -322,6 +322,7 @@ struct TransactionsScreen: View {
         .scrollContentBackground(.hidden)
         .listSectionSpacing(4)
         .environment(\.defaultMinListRowHeight, 10)
+        .contentMargins(.top, 0, for: .scrollContent)
         .contentMargins(.bottom, 104, for: .scrollContent)
         .scrollIndicators(.hidden)
         .scrollDismissesKeyboard(.immediately)

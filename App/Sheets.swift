@@ -435,12 +435,13 @@ struct AddSheet: View {
         VStack(spacing: 0) {
             VStack(spacing: small ? 8 : 12) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    if store.lang == .ar { Text(store.t("cur")).font(.alx(18)).foregroundStyle(p.label2) }
                     Text(amountText.isEmpty ? "0" : amountText)
                         .font(.alx(small ? 46 : 56, .semibold, relativeTo: .largeTitle)).monospacedDigit()
                         .foregroundStyle(amountText.isEmpty ? p.label3 : p.label)
                         .lineLimit(1).minimumScaleFactor(0.5)
                     Capsule().fill(Tok.tint).frame(width: 3, height: small ? 38 : 46)
-                    Text(store.t("cur")).font(.alx(18)).foregroundStyle(p.label2)
+                    if store.lang != .ar { Text(store.t("cur")).font(.alx(18)).foregroundStyle(p.label2) }
                 }
                 .environment(\.layoutDirection, .leftToRight)
                 .frame(maxWidth: .infinity)

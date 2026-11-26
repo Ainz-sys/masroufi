@@ -95,7 +95,7 @@ enum Demo {
                 guard let day = cal.date(byAdding: .day, value: i, to: cy.start), day <= start else { break }
                 let isToday = day == start
                 if isToday { continue }   // today's transactions are added below
-                if rnd() < 0.75 { add(at(day, 8, Int(rnd() * 50)), amt(3, 26) , rnd() < 0.5 ? "Starbucks Lusail" : "Karak Al Doha", "coffee", source: .applePay, title: names["Karak Al Doha"]) }
+                if rnd() < 0.75 { let m = rnd() < 0.5 ? "Starbucks Lusail" : "Karak Al Doha"; add(at(day, 8, Int(rnd() * 50)), amt(3, 26), m, "coffee", source: .applePay, title: names[m]) }
                 if i % 2 == 0 { add(at(day, 19, 10), amt(70, 320) * k, ["Carrefour City Center", "Lulu Hypermarket", "Al Meera", "Monoprix"][Int(rnd() * 4)], "grocery") }
                 if i % 3 == 1 { let m = rnd() < 0.5 ? "Talabat" : "Snoonu"; add(at(day, 13, 20), amt(35, 95) * k, m, "food", title: names[m]) }
                 if i % 7 == 3 { add(at(day, 7, 15), amt(120, 180), "WOQOD Al Dayeen", "fuel") }

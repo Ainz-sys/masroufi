@@ -121,10 +121,12 @@ struct ReviewBanner: View {
                             .zIndex(Double(3 - i))
                     }
                 }
-                .frame(width: 60, height: 40)
+                .frame(width: 54, height: 40)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.alx(16, .semibold)).foregroundStyle(p.label).lineLimit(1).minimumScaleFactor(0.75)
-                    Text(store.t("reviewP")).font(.alx(12.5)).foregroundStyle(p.label2).lineLimit(1).minimumScaleFactor(0.75)
+                    Text(title).font(.alx(15.5, .semibold)).foregroundStyle(p.label).lineLimit(2).minimumScaleFactor(0.85)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(store.t("reviewP")).font(.alx(12.5)).foregroundStyle(p.label2).lineLimit(2).minimumScaleFactor(0.85)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
                 Text(store.t("reviewGo")).font(.alx(14.5, .semibold)).foregroundStyle(.white)
@@ -166,13 +168,14 @@ struct PaceCard: View {
         let ys = (cur + last).map(\.y) + [hasBudget ? pace.budget : 0, 0]
         let lo = min(0, ys.min() ?? 0), hi = max(1, ys.max() ?? 1)
         return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Text(store.t("pace")).font(.alx(17, .bold)).foregroundStyle(p.label)
-                Spacer(minLength: 4)
+            Text(store.t("pace")).font(.alx(17, .bold)).foregroundStyle(p.label)
+            HStack(spacing: 14) {
                 legend(store.t("thisMonthL"), Tok.tint, dash: nil)
                 if !last.isEmpty { legend(store.t("lastMonthL"), p.label2, dash: [4, 3]) }
                 if hasBudget { legend(store.t("budgetL"), Tok.gold, dash: [1.5, 3]) }
+                Spacer(minLength: 0)
             }
+            .padding(.top, -4)
             Chart {
                 if hasBudget {
                     LineMark(x: .value("d", xv(0)), y: .value("v", pace.budget), series: .value("s", "budget"))

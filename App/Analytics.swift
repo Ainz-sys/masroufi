@@ -389,7 +389,7 @@ struct SankeyView: View {
         }
         out.height = max(catBottom, prevBottom, Self.top + totalH) + 4
         out.totalH = totalH
-        out.totalY = Self.top + max(0, (out.height - Self.top - totalH) / 2)
+        out.totalY = Self.top
         return out
     }
 
@@ -447,7 +447,7 @@ struct SankeyView: View {
                 }
                 .environment(\.layoutDirection, rtl ? .rightToLeft : .leftToRight)
                 .fixedSize()
-                .position(x: mx(totalX + 34), y: max(16, pl.totalY - 16))
+                .position(x: mx(totalX + 30), y: pl.totalY - 17)
                 // groups
                 ForEach(pl.groups.indices, id: \.self) { i in
                     let g = pl.groups[i]
