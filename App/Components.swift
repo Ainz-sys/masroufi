@@ -3,8 +3,8 @@ import UIKit
 
 // MARK: - Navigation state
 
-enum AppTab: Hashable { case today, txs, insights, settings }
-enum Route: Hashable { case detail(String), categories, guide, salary }
+enum AppTab: Hashable { case home, txs, plan, analytics }
+enum Route: Hashable { case detail(String), categories, guide, salary, settings, review }
 
 enum SheetRoute: Identifiable {
     case add(paste: Bool)
@@ -12,6 +12,10 @@ enum SheetRoute: Identifiable {
     case editCategory(String)
     case budget
     case rename(String)
+    case planned(String?)
+    case merchantBudget(String?)
+    case fixedPlan
+    case pickCategory(String, review: Bool)
 
     var id: String {
         switch self {
@@ -20,13 +24,17 @@ enum SheetRoute: Identifiable {
         case .editCategory(let c): return "edit-\(c)"
         case .budget: return "budget"
         case .rename(let t): return "rename-\(t)"
+        case .planned(let t): return "planned-\(t ?? "")"
+        case .merchantBudget(let t): return "mb-\(t ?? "")"
+        case .fixedPlan: return "fixed"
+        case .pickCategory(let t, let r): return "pick-\(t)-\(r)"
         }
     }
 }
 
 @MainActor
 final class Nav: ObservableObject {
-    @Published var tab: AppTab = .today
+    @Published var tab: AppTab = .home
     @Published var path: [Route] = []
     @Published var sheet: SheetRoute? = nil
     @Published var toast: String? = nil
@@ -196,6 +204,24 @@ struct TxRow: View {
     @Environment(\.palette) private var p
     let tx: Transaction
 
+    /// Where it came from: bank SMS, Apple Pay, a scanned receipt, or typed in.
+    var sourceGlyph: String {
+        switch tx.source {
+        case .sms: return "message.fill"
+        case .applePay: return "apple.logo"
+        case .receipt: return "doc.text.viewfinder"
+        case .manual: return "pencil"
+        }
+    }
+    var sourceName: String {
+        switch tx.source {
+        case .sms: return store.t("sms")
+        case .applePay: return store.t("applePay")
+        case .receipt: return store.t("receipt")
+        case .manual: return store.t("manual")
+        }
+    }
+
     var body: some View {
         let c = store.data.category(tx.categoryID)
         let credit = tx.kind == .credit
@@ -204,8 +230,18 @@ struct TxRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(tx.displayName.isEmpty ? c.name(store.lang) : tx.displayName)
                     .font(.alx(16.5, .semibold)).foregroundStyle(p.label).lineLimit(2).multilineTextAlignment(.leading)
-                Text(c.name(store.lang) + (tx.noTime ? "" : " · " + Fmt.time(tx.date)))
-                    .font(.alx(14, relativeTo: .subheadline)).foregroundStyle(p.label2).lineLimit(1)
+                HStack(spacing: 5) {
+                    Image(systemName: sourceGlyph).font(.system(size: 10, weight: .semibold)).foregroundStyle(p.label3)
+                        .accessibilityLabel(sourceName)
+                    Text(c.name(store.lang) + (tx.noTime ? "" : " · " + Fmt.time(tx.date)))
+                        .font(.alx(14, relativeTo: .subheadline)).foregroundStyle(p.label2).lineLimit(1)
+                    if tx.needsReview {
+                        Text(store.t("reviewTag")).font(.alx(11, .semibold, relativeTo: .caption2)).foregroundStyle(Tok.tintInk)
+                            .padding(.horizontal, 7).frame(height: 20)
+                            .background(Capsule().fill(p.tintContainer))
+                            .fixedSize()
+                    }
+                }
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 0) {
@@ -419,17 +455,45 @@ struct FloatingTabBar: View {
     @EnvironmentObject var nav: Nav
     @Environment(\.palette) private var p
 
-    private struct Item: Identifiable { let tab: AppTab; let icon: String; let key: String; var id: String { key } }
-    private let items: [Item] = [Item(tab: .today, icon: "calendar", key: "today"), Item(tab: .txs, icon: "receipt", key: "txs"),
-                                 Item(tab: .insights, icon: "chart", key: "insights"), Item(tab: .settings, icon: "gear", key: "settings")]
+    private struct Item: Identifiable { let tab: AppTab?; let icon: String; let key: String; var id: String { key } }
+    // the middle item (tab nil) is the add button
+    private let items: [Item] = [Item(tab: .home, icon: "home", key: "home"), Item(tab: .txs, icon: "receipt", key: "txs"),
+                                 Item(tab: nil, icon: "plus", key: "addTx"),
+                                 Item(tab: .plan, icon: "budget", key: "plan"), Item(tab: .analytics, icon: "chart", key: "analytics")]
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(items) { item in
-                let selected = nav.tab == item.tab
-                Button {
-                    if nav.tab != item.tab { UISelectionFeedbackGenerator().selectionChanged() }
-                    withAnimation(.easeOut(duration: 0.2)) { nav.tab = item.tab }
+                if let tab = item.tab { tabButton(item, tab) } else { addButton }
+            }
+        }
+        .padding(4)
+        .frame(height: Layout.tabBarHeight)
+        .dynamicTypeSize(...DynamicTypeSize.large)
+        .background(Capsule().fill(.ultraThinMaterial))
+        .background(Capsule().fill(p.glass))
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.45), radius: 16, x: 0, y: 12)
+        .padding(.horizontal, 16)
+    }
+
+    var addButton: some View {
+        Button { UIImpactFeedbackGenerator(style: .light).impactOccurred(); nav.sheet = .add(paste: false) } label: {
+            Image(systemName: "plus").font(.system(size: 24, weight: .bold)).foregroundStyle(.white)
+                .frame(width: 54, height: 54)
+                .background(Circle().fill(LinearGradient(colors: [Color(hex: 0xF2638F), Color(hex: 0xC42A5C)], startPoint: .topLeading, endPoint: .bottomTrailing)))
+                .shadow(color: Tok.tint.opacity(0.45), radius: 9, x: 0, y: 6)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(PressStyle())
+        .accessibilityLabel(store.t("addTx"))
+    }
+
+    func tabButton(_ item: Item, _ tab: AppTab) -> some View {
+                let selected = nav.tab == tab
+                return Button {
+                    if nav.tab != tab { UISelectionFeedbackGenerator().selectionChanged() }
+                    withAnimation(.easeOut(duration: 0.2)) { nav.tab = tab }
                 } label: {
                     VStack(spacing: 1) {
                         Icon3D(name: item.icon, size: 27)
@@ -444,16 +508,6 @@ struct FloatingTabBar: View {
                 }
                 .buttonStyle(PressStyle())
                 .accessibilityAddTraits(selected ? .isSelected : [])
-            }
-        }
-        .padding(4)
-        .frame(height: Layout.tabBarHeight)
-        .dynamicTypeSize(...DynamicTypeSize.large)
-        .background(Capsule().fill(.ultraThinMaterial))
-        .background(Capsule().fill(p.glass))
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.45), radius: 16, x: 0, y: 12)
-        .padding(.horizontal, 16)
     }
 }
 

@@ -37,10 +37,10 @@ struct MainShell: View {
         NavigationStack(path: $nav.path) {
             Group {
                 switch nav.tab {
-                case .today: TodayScreen()
+                case .home: HomeScreen()
                 case .txs: TransactionsScreen()
-                case .insights: InsightsScreen()
-                case .settings: SettingsScreen()
+                case .plan: PlanScreen()
+                case .analytics: AnalyticsScreen()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -53,6 +53,8 @@ struct MainShell: View {
                     case .categories: CategoriesScreen()
                     case .guide: GuideScreen()
                     case .salary: SalaryScreen()
+                    case .settings: SettingsScreen()
+                    case .review: ReviewScreen()
                     }
                 }
                 .toolbar(.hidden, for: .navigationBar)
@@ -117,6 +119,10 @@ struct SheetHost: View {
             case .editCategory(let id): CategoryEditorSheet(categoryID: id, forTx: nil)
             case .budget: BudgetSheet()
             case .rename(let id): RenameSheet(txID: id)
+            case .planned(let id): PlannedSheet(plannedID: id)
+            case .merchantBudget(let id): MerchantBudgetSheet(budgetID: id)
+            case .fixedPlan: FixedPlanSheet()
+            case .pickCategory(let id, let review): CategoryPickerSheet(txID: id, review: review)
             }
         }
         .environmentObject(store)
@@ -162,6 +168,7 @@ struct RemainingPanel: View {
     @EnvironmentObject var nav: Nav
     @Environment(\.palette) private var p
     let month: Ledger.Month
+    var vsLast: Double? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -175,15 +182,11 @@ struct RemainingPanel: View {
                 BigAmount(value: abs(month.remaining), color: month.remaining < 0 ? Tok.danger : nil, prefix: month.remaining < 0 ? "-" : "")
                     .padding(.top, 2)
                 ProgressBar(fraction: month.fraction).padding(.top, 12)
-                HStack(spacing: 8) {
-                    (Text(store.t("spent") + " ") + Text(Fmt.m(month.spent)).foregroundColor(p.label).font(.alx(15, .semibold)) + Text(" " + store.t("cur")))
-                        .lineLimit(1).minimumScaleFactor(0.7)
-                    Spacer(minLength: 4)
-                    pill.layoutPriority(1)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { pill; comparePill; Spacer(minLength: 0) }
+                    VStack(alignment: .leading, spacing: 8) { pill; comparePill }
                 }
-                .font(.alx(14.5)).foregroundStyle(p.label2)
-                .padding(.top, 10)
-                Text(paceLine).font(.alx(13.5)).foregroundStyle(p.label3).padding(.top, 8)
+                .padding(.top, 12)
             } else {
                 HStack {
                     Text(store.t("spentMonth")).font(.alx(15)).foregroundStyle(p.label2)
@@ -202,19 +205,28 @@ struct RemainingPanel: View {
         .padding(.top, 4)
     }
 
-    /// "≈ 512 ر.ق لكل يوم · باقي 7 أيام": the pace that keeps the month on budget.
-    var paceLine: String {
-        let n = L10n.days(month.daysLeft, store.lang)
-        return month.remaining > 0 ? store.t("perDayLeft", ["d": Fmt.m0(month.perDay), "n": n]) : store.t("renewsIn", ["n": n])
-    }
-
+    /// "≈ 510 a day" while on budget (amber when close to the limit), or how much over.
     @ViewBuilder var pill: some View {
         if month.spent > month.budget {
-            StatusPill(kind: .over, text: store.t("over") + " " + Fmt.m(month.spent - month.budget))
-        } else if month.fraction >= 0.8 {
-            StatusPill(kind: .warn, text: store.t("near"))
+            StatusPill(kind: .over, text: store.t("over") + " " + Fmt.m0(month.spent - month.budget))
         } else {
-            StatusPill(kind: .ok, text: store.t("ok"))
+            StatusPill(kind: month.fraction >= 0.8 ? .warn : .ok, text: store.t("aDay", ["d": Fmt.m0(month.perDay)]))
+        }
+    }
+
+    /// Spending so far against the same point of last month.
+    @ViewBuilder var comparePill: some View {
+        if let v = vsLast, abs(v) >= 1 {
+            let better = v <= 0
+            HStack(spacing: 5) {
+                Image(systemName: better ? "arrowtriangle.down.fill" : "arrowtriangle.up.fill").font(.system(size: 9, weight: .bold))
+                Text(store.t(better ? "lessLast" : "moreLast", ["n": Fmt.m0(abs(v))])).font(.alx(13, .semibold, relativeTo: .caption))
+                    .lineLimit(1).minimumScaleFactor(0.75)
+            }
+            .foregroundStyle(better ? Color(hex: 0x9CCBFF) : Tok.warning)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 30)
+            .background((better ? Color(hex: 0x6DB7FF) : Tok.warning).opacity(0.15), in: Capsule())
         }
     }
 }
@@ -232,67 +244,6 @@ func dayLabel(_ d: Date, _ store: Store) -> String {
     return Fmt.day(d, store.lang)
 }
 
-// MARK: - Today
-
-struct TodayScreen: View {
-    @EnvironmentObject var store: Store
-    @EnvironmentObject var nav: Nav
-    @Environment(\.palette) private var p
-
-    var body: some View {
-        let month = Ledger.month(store.data)
-        let txs = Ledger.transactions(store.data, on: Date())
-        ScrollView {
-            VStack(spacing: 0) {
-                TopBar(title: store.t("today"), subtitle: Fmt.day(Date(), store.lang), bottom: 0) {
-                    RoundButton(systemImage: "plus", label: store.t("addTx")) { nav.sheet = .add(paste: false) }
-                }
-                Card3DView(info: store.cardInfo()).frame(height: 200)
-                RemainingPanel(month: month)
-                if !store.data.autoOn {
-                    Button { nav.path.append(.guide) } label: {
-                        HStack(spacing: 14) {
-                            Icon3D(name: "zap", size: 30)
-                            Text(store.t("autoOff")).font(.alx(16)).foregroundStyle(p.onTintContainer)
-                            Spacer()
-                            Image(systemName: "chevron.forward").font(.system(size: 13, weight: .semibold)).foregroundStyle(p.onTintContainer.opacity(0.7))
-                        }
-                        .padding(.horizontal, 16)
-                        .frame(minHeight: 56)
-                        .background(p.tintContainer, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .padding(.horizontal, 18)
-                        .padding(.top, 12)
-                    }
-                    .buttonStyle(PressStyle())
-                }
-                SectionHeader(title: store.t("todayTx")) {
-                    if !store.data.transactions.isEmpty {
-                        Button { nav.tab = .txs } label: {
-                            Text(store.t("all") + " (\(store.data.transactions.count))").font(.alx(14, .medium)).foregroundStyle(Tok.tintInk).frame(minHeight: 44)
-                        }
-                    }
-                }
-                if txs.isEmpty {
-                    EmptyCard(icon: "receipt", title: store.t("noTodayT"), text: store.t("noTodayP"), actions: AnyView(
-                        HStack(spacing: 8) {
-                            SmallButton(title: store.t("addManual")) { nav.sheet = .add(paste: false) }
-                            if !store.data.autoOn { SmallButton(title: store.t("setupAuto"), ghost: true) { nav.path.append(.guide) } }
-                        }))
-                } else {
-                    SurfaceGroup {
-                        ForEach(txs) { tx in
-                            if tx.id != txs.first?.id { RowDivider() }
-                            Button { nav.path.append(.detail(tx.id)) } label: { TxRow(tx: tx) }.buttonStyle(PressStyle())
-                        }
-                    }
-                }
-            }
-            .padding(.bottom, 96)
-        }
-        .scrollIndicators(.hidden)
-    }
-}
-
 // MARK: - Transactions
 
 struct TransactionsScreen: View {
@@ -300,81 +251,153 @@ struct TransactionsScreen: View {
     @EnvironmentObject var nav: Nav
     @Environment(\.palette) private var p
     @State private var query = ""
+    @State private var pendingDelete: String? = nil
     @FocusState private var searching: Bool
 
-    var groups: [DayGroup] {
-        let lang = store.lang, q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        let list = store.data.transactions.filter { tx in
-            if let f = nav.txFilter, tx.categoryID != f { return false }
-            if q.isEmpty { return true }
-            return tx.displayName.lowercased().contains(q) || tx.merchant.lowercased().contains(q) || Fmt.m(tx.amountHome).contains(q) || tx.note.lowercased().contains(q)
-                || store.data.category(tx.categoryID).name(lang).lowercased().contains(q)
+    /// `nav.txFilter` value for the review queue (any other value is a category id).
+    static let reviewFilter = "@review"
+
+    func matches(_ tx: Transaction, _ q: String) -> Bool {
+        if let f = nav.txFilter {
+            if f == Self.reviewFilter { if !tx.needsReview { return false } } else if tx.categoryID != f { return false }
         }
+        if q.isEmpty { return true }
+        let tags = (tx.tags ?? []).map { $0.lowercased() }
+        if q.hasPrefix("#") { let t = String(q.dropFirst()); return t.isEmpty ? !tags.isEmpty : tags.contains { $0.hasPrefix(t) } }
+        return tx.displayName.lowercased().contains(q) || tx.merchant.lowercased().contains(q) || Fmt.m(tx.amountHome).contains(q)
+            || tx.note.lowercased().contains(q) || tags.contains { $0.contains(q) }
+            || store.data.category(tx.categoryID).name(store.lang).lowercased().contains(q)
+    }
+
+    var groups: [DayGroup] {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        let list = store.data.transactions.filter { matches($0, q) }
         let g = Dictionary(grouping: list) { Calendar.current.startOfDay(for: $0.date) }
         return g.keys.sorted(by: >).map { DayGroup(id: $0, txs: (g[$0] ?? []).sorted { $0.date > $1.date }) }
     }
 
+    /// Categories in use, the most used first.
     var usedCategories: [Category] {
-        let used = Set(store.data.transactions.map(\.categoryID))
-        return store.data.categories.filter { used.contains($0.id) }
+        var count: [String: Int] = [:]
+        for t in store.data.transactions { count[t.categoryID, default: 0] += 1 }
+        return store.data.categories.filter { count[$0.id] != nil }.sorted { (count[$0.id] ?? 0) > (count[$1.id] ?? 0) }
     }
 
     var body: some View {
         let groups = self.groups
-        ScrollView {
-            VStack(spacing: 0) {
-                TopBar(title: store.t("txs")) {
-                    RoundButton(systemImage: "plus", label: store.t("addTx")) { nav.sheet = .add(paste: false) }
-                }
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass").font(.system(size: 16, weight: .medium)).foregroundStyle(p.label3)
-                    TextField("", text: $query, prompt: Text(store.t("search")).foregroundColor(p.label3))
-                        .font(.alx(16)).foregroundStyle(p.label).focused($searching).submitLabel(.search).autocorrectionDisabled()
-                    if !query.isEmpty {
-                        Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(p.label3) }
+        List {
+            Section {
+                header
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
+            if groups.isEmpty {
+                Section {
+                    VStack(spacing: 6) {
+                        Icon3D(name: "receipt", size: 64, shadow: true).padding(.bottom, 4)
+                        Text(store.t("noTxT")).font(.alx(17, .semibold)).foregroundStyle(p.label)
+                        Text(store.data.transactions.isEmpty ? store.t("noTodayP") : store.t("noTxP")).font(.alx(14.5)).foregroundStyle(p.label2).multilineTextAlignment(.center)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24).padding(.horizontal, 16)
+                    .listRowBackground(p.surface)
                 }
-                .padding(.horizontal, 14)
-                .frame(height: 46)
-                .background(p.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .padding(.horizontal, 18)
-                .padding(.top, 4)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        Chip(title: store.t("allCats"), selected: nav.txFilter == nil) { nav.txFilter = nil }
-                        ForEach(usedCategories) { c in
-                            Chip(icon: c.symbol, title: c.name(store.lang), selected: nav.txFilter == c.id) { nav.txFilter = c.id }
-                        }
-                    }
-                    .padding(.horizontal, 18)
-                }
-                .padding(.top, 12)
-                if groups.isEmpty {
-                    EmptyCard(icon: "receipt", title: store.t("noTxT"), text: store.data.transactions.isEmpty ? store.t("noTodayP") : store.t("noTxP"))
-                        .padding(.top, 16)
-                }
-                ForEach(groups) { g in
+            }
+            ForEach(groups) { g in
+                Section {
+                    ForEach(g.txs) { tx in row(tx) }
+                } header: {
                     HStack(alignment: .firstTextBaseline) {
                         Text(dayLabel(g.id, store)).font(.alx(15, .semibold)).foregroundStyle(p.label)
                         Spacer()
-                        Text("\u{200E}" + Fmt.m(g.txs.filter(\.counts).reduce(0) { $0 + $1.amountHome }) + " " + store.t("cur"))
-                            .font(.alx(14)).foregroundStyle(p.label2)
+                        Text("\u{200E}" + Fmt.m(g.txs.filter(\.counts).reduce(0) { $0 + $1.amountHome })).font(.alx(13.5)).foregroundStyle(p.label2)
                     }
-                    .padding(.horizontal, 22)
-                    .padding(.top, 20)
-                    .padding(.bottom, 8)
-                    SurfaceGroup {
-                        ForEach(g.txs) { tx in
-                            if tx.id != g.txs.first?.id { RowDivider() }
-                            Button { nav.path.append(.detail(tx.id)) } label: { TxRow(tx: tx) }.buttonStyle(PressStyle())
-                        }
+                    .textCase(nil)
+                    .padding(.top, 6)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .listSectionSpacing(4)
+        .environment(\.defaultMinListRowHeight, 10)
+        .contentMargins(.bottom, 104, for: .scrollContent)
+        .scrollIndicators(.hidden)
+        .scrollDismissesKeyboard(.immediately)
+        .confirmationDialog(store.t("delOneQ"), isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
+                            titleVisibility: .visible) {
+            Button(store.t("delete"), role: .destructive) {
+                if let id = pendingDelete { withAnimation { store.deleteTx(id) } }
+                pendingDelete = nil
+            }
+            Button(store.t("cancel"), role: .cancel) { pendingDelete = nil }
+        }
+    }
+
+    var header: some View {
+        let m = Ledger.month(store.data)
+        let monthCount = store.data.transactions.filter { $0.date >= m.start && $0.date < m.end }.count
+        let reviewCount = store.data.transactions.filter(\.needsReview).count
+        return VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(store.t("txs")).font(.alx(30, .bold, relativeTo: .largeTitle)).foregroundStyle(p.label)
+                Text(store.t("txsSub", ["n": "\(monthCount)"])).font(.alx(14, relativeTo: .subheadline)).foregroundStyle(p.label2)
+            }
+            .padding(.top, 6)
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").font(.system(size: 16, weight: .medium)).foregroundStyle(p.label3)
+                TextField("", text: $query, prompt: Text(store.t("searchAll")).foregroundColor(p.label3))
+                    .font(.alx(15.5)).foregroundStyle(p.label).focused($searching).submitLabel(.search).autocorrectionDisabled()
+                if !query.isEmpty {
+                    Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(p.label3) }
+                        .accessibilityLabel(store.t("cancel"))
+                }
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 46)
+            .background(p.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(.top, 14)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    Chip(title: store.t("allCats"), selected: nav.txFilter == nil) { nav.txFilter = nil }
+                    if reviewCount > 0 || nav.txFilter == Self.reviewFilter {
+                        Chip(title: store.t("toReview") + " \(reviewCount)", selected: nav.txFilter == Self.reviewFilter) { nav.txFilter = Self.reviewFilter }
+                    }
+                    ForEach(usedCategories) { c in
+                        Chip(icon: c.symbol, title: c.name(store.lang), selected: nav.txFilter == c.id) { nav.txFilter = c.id }
+                    }
+                    ForEach(store.allTags.prefix(6), id: \.self) { t in
+                        Chip(title: "#" + t, selected: query == "#" + t.lowercased()) { query = query == "#" + t.lowercased() ? "" : "#" + t.lowercased() }
                     }
                 }
             }
-            .padding(.bottom, 96)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
         }
-        .scrollIndicators(.hidden)
-        .scrollDismissesKeyboard(.immediately)
+    }
+
+    func row(_ tx: Transaction) -> some View {
+        Button { nav.path.append(.detail(tx.id)) } label: { TxRow(tx: tx) }
+            .buttonStyle(PressStyle())
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(p.surface)
+            .listRowSeparatorTint(p.separator)
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                Button { pendingDelete = tx.id } label: { Label(store.t("delete"), systemImage: "trash") }.tint(Tok.danger)
+                Button { nav.sheet = .pickCategory(tx.id, review: false) } label: { Label(store.t("categorize"), systemImage: "tag") }.tint(Color(hex: 0x4D9CFF))
+            }
+            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                if tx.needsReview {
+                    Button { store.confirm(tx.id) } label: { Label(store.t("markOK"), systemImage: "checkmark") }.tint(Tok.positive)
+                }
+            }
+            .contextMenu {
+                if tx.needsReview { Button { store.confirm(tx.id) } label: { Label(store.t("markOK"), systemImage: "checkmark") } }
+                Button { nav.sheet = .pickCategory(tx.id, review: false) } label: { Label(store.t("categorize"), systemImage: "tag") }
+                Button { nav.sheet = .rename(tx.id) } label: { Label(store.t("rename"), systemImage: "pencil") }
+                Button(role: .destructive) { pendingDelete = tx.id } label: { Label(store.t("delete"), systemImage: "trash") }
+            }
     }
 }
 
@@ -398,292 +421,6 @@ struct DayValue: Identifiable {
     var id: Date { day }
     let day: Date
     let value: Double
-}
-
-struct InsightsScreen: View {
-    @EnvironmentObject var store: Store
-    @EnvironmentObject var nav: Nav
-    @Environment(\.palette) private var p
-    @State private var selectedDay: Date? = Demo.value("-masroufiChartDay").flatMap({ Int($0) }).flatMap {
-        Calendar.current.date(byAdding: .day, value: $0, to: Calendar.current.startOfDay(for: Date()))
-    }
-
-    struct Stats {
-        var start = Date(), cycleStart = Date(), end = Date(), days = 30
-        var spent = 0.0, budget = 0.0, avg = 0.0, projected = 0.0, income = 0.0
-        var delta: Double? = nil
-        var perDay: [DayValue] = []
-        var byCategory: [CategoryStat] = []
-        var merchants: [MerchantStat] = []
-    }
-
-    func stats() -> Stats {
-        let d = store.data, cal = Calendar.current, now = Date()
-        let cy = Ledger.cycle(salaryDay: d.settings.salaryDay, ref: now)
-        var s = Stats()
-        s.start = cy.start; s.cycleStart = cy.start; s.end = cy.end; s.days = cy.days
-        s.spent = Ledger.spent(d, from: cy.start, to: cy.end)
-        s.budget = max(0, d.settings.monthlyBudget)
-        let from = Ledger.trackingStart(d, cycleStart: cy.start)
-        let elapsed = max(1, (cal.dateComponents([.day], from: from, to: min(now, cy.end)).day ?? 0) + 1)
-        let remainingDays = max(0, cal.dateComponents([.day], from: cal.startOfDay(for: now), to: cy.end).day ?? 0) - 1
-        s.avg = s.spent / Double(elapsed)
-        s.projected = s.spent + s.avg * Double(max(0, remainingDays))
-        s.start = from
-        s.income = d.transactions.filter { $0.kind == .credit && !$0.excluded && $0.date >= cy.start && $0.date < cy.end }.reduce(0) { $0 + $1.amountHome }
-        let prev = Ledger.cycle(salaryDay: d.settings.salaryDay, ref: cal.date(byAdding: .day, value: -1, to: cy.start) ?? cy.start)
-        let prevSpent = Ledger.spent(d, from: prev.start, to: prev.start.addingTimeInterval(min(now, cy.end).timeIntervalSince(cy.start)))
-        s.delta = prevSpent > 0 ? (s.spent - prevSpent) / prevSpent : nil
-        s.perDay = (0..<cy.days).compactMap { (i: Int) -> DayValue? in
-            guard let day = cal.date(byAdding: .day, value: i, to: from), day <= now, day < cy.end else { return nil }
-            let b = Ledger.dayBounds(day)
-            return DayValue(day: day, value: Ledger.spent(d, from: b.start, to: b.end))
-        }
-        let inCycle = d.transactions.filter { $0.counts && $0.date >= cy.start && $0.date < cy.end }
-        let byCat = Dictionary(grouping: inCycle, by: { $0.categoryID }).mapValues { $0.reduce(0) { $0 + $1.amountHome } }
-        s.byCategory = byCat.map { CategoryStat(category: d.category($0.key), amount: $0.value) }.sorted { $0.amount > $1.amount }
-        let byMerchant = Dictionary(grouping: inCycle.filter { !$0.merchant.isEmpty }, by: { $0.merchantKey.isEmpty ? $0.merchant : $0.merchantKey })
-        let stats: [MerchantStat] = byMerchant.values.map { (txs: [Transaction]) -> MerchantStat in
-            MerchantStat(name: (txs.max { $0.date < $1.date } ?? txs[0]).displayName, icon: d.category(txs[0].categoryID).symbol, amount: txs.reduce(0.0) { $0 + $1.amountHome }, count: txs.count)
-        }
-        s.merchants = Array(stats.sorted { $0.amount > $1.amount }.prefix(5))
-        return s
-    }
-
-    var body: some View {
-        let s = stats()
-        let lang = store.lang
-        ScrollView {
-            VStack(spacing: 0) {
-                TopBar(title: store.t("insights"), subtitle: store.t("cycle") + ": " + Fmt.short(s.cycleStart, lang) + " – " + Fmt.short(s.end.addingTimeInterval(-86400), lang)) { EmptyView() }
-                if store.data.transactions.isEmpty {
-                    EmptyCard(icon: "chart", title: store.t("noData"), text: store.t("noTodayP"))
-                } else {
-                    cyclePanel(s)
-                    kpis(s)
-                    SectionHeader(title: store.t("perDay")) {
-                        if showPace(s) { Text(store.t("budgetLine")).font(.alx(13)).foregroundStyle(p.label2) }
-                    }
-                    chart(s)
-                    if let day = selectedDay { dayList(day) }
-                    if !s.byCategory.isEmpty {
-                        SectionHeader(store.t("byCat"))
-                        SurfaceGroup {
-                            ForEach(s.byCategory) { item in
-                                if item.id != s.byCategory.first?.id { RowDivider() }
-                                Button { nav.txFilter = item.category.id; nav.tab = .txs } label: { categoryRow(item, total: s.spent) }.buttonStyle(PressStyle())
-                            }
-                        }
-                    }
-                    if !s.merchants.isEmpty {
-                        SectionHeader(store.t("topMerchants"))
-                        SurfaceGroup {
-                            ForEach(s.merchants) { m in
-                                if m.id != s.merchants.first?.id { RowDivider() }
-                                HStack(spacing: 14) {
-                                    Icon3D(name: m.icon, size: 40, shadow: true)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(m.name).font(.alx(16, .semibold)).foregroundStyle(p.label).lineLimit(1)
-                                        Text("×\(m.count)").font(.alx(13.5)).foregroundStyle(p.label2)
-                                    }
-                                    Spacer()
-                                    Text("\u{200E}" + Fmt.m(m.amount)).font(.alx(17, .semibold)).monospacedDigit().foregroundStyle(p.label)
-                                }
-                                .padding(.horizontal, 16).frame(minHeight: 64)
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.bottom, 96)
-        }
-        .scrollIndicators(.hidden)
-    }
-
-    func cyclePanel(_ s: Stats) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(store.t("cycleSpent"))
-                Spacer()
-                if s.budget > 0 { Text(store.t("of") + " ") + Text(Fmt.m0(s.budget)).foregroundColor(p.label).font(.alx(15, .semibold)) + Text(" " + store.t("cur")) }
-            }
-            .font(.alx(15)).foregroundStyle(p.label2)
-            BigAmount(value: s.spent).padding(.top, 2)
-            if s.budget > 0 { ProgressBar(fraction: s.spent / s.budget).padding(.top, 12) }
-        }
-        .padding(.horizontal, 18).padding(.vertical, 16)
-        .background(p.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .padding(.horizontal, 18)
-    }
-
-    func kpis(_ s: Stats) -> some View {
-        let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
-        return LazyVGrid(columns: columns, spacing: 10) {
-            kpi(store.t("dailyAvg"), Fmt.m(s.avg), nil, nil)
-            if s.budget > 0 {
-                let over = s.projected > s.budget
-                kpi(store.t("projected"), Fmt.m0(s.projected),
-                    (over ? "▲ " : "▼ ") + store.t(over ? "overBy2" : "underBy2", ["n": Fmt.m0(abs(s.projected - s.budget))]), over ? Tok.danger : Tok.positive)
-            } else {
-                kpi(store.t("projected"), Fmt.m0(s.projected), nil, nil)
-            }
-            if let d = s.delta {
-                kpi(store.t("vsPrev"), (d > 0 ? "+" : "") + String(format: "%.0f%%", d * 100), nil, nil, valueColor: d > 0 ? Tok.danger : Tok.positive)
-            } else {
-                kpi(store.t("vsPrev"), "—", nil, nil)
-            }
-            kpi(store.t("income"), Fmt.m0(s.income), nil, nil, valueColor: Tok.positive)
-        }
-        .padding(.horizontal, 18)
-        .padding(.top, 10)
-    }
-
-    func kpi(_ title: String, _ value: String, _ note: String?, _ noteColor: Color?, valueColor: Color? = nil) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.alx(13)).foregroundStyle(p.label2)
-            Text("\u{200E}" + value).font(.alx(24, .semibold)).monospacedDigit().foregroundStyle(valueColor ?? p.label).lineLimit(1).minimumScaleFactor(0.6)
-            if let note { Text(note).font(.alx(12)).foregroundStyle(noteColor ?? p.label2).lineLimit(1).minimumScaleFactor(0.7) }
-        }
-        .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
-        .padding(.horizontal, 16).padding(.vertical, 12)
-        .background(p.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-
-    /// Even daily share of the monthly budget (the dashed line), shown only while it keeps the bars readable.
-    func pace(_ s: Stats) -> Double { s.budget > 0 ? s.budget / Double(max(1, s.days)) : 0 }
-    func showPace(_ s: Stats) -> Bool {
-        let top = s.perDay.map(\.value).max() ?? 0
-        return pace(s) > 0 && top > 0 && pace(s) <= 3 * top
-    }
-
-    struct ChartDay: Identifiable { let key: String; let day: Date; let value: Double?; var id: String { key } }
-
-    /// Every day of the chart (tracking start → end of the budget month); days still to come have no value.
-    func chartDays(_ s: Stats) -> [ChartDay] {
-        let cal = Calendar.current
-        let values = Dictionary(s.perDay.map { (Ledger.key($0.day), $0.value) }, uniquingKeysWith: { a, _ in a })
-        var out: [ChartDay] = []
-        var d = cal.startOfDay(for: s.start)
-        while d < s.end, out.count < 62 {
-            let k = Ledger.key(d)
-            out.append(ChartDay(key: k, day: d, value: values[k]))
-            d = cal.date(byAdding: .day, value: 1, to: d) ?? s.end
-        }
-        return out
-    }
-
-    func select(_ key: String, in days: [ChartDay]) {
-        guard let item = days.first(where: { $0.key == key }), item.value != nil else { return }
-        UISelectionFeedbackGenerator().selectionChanged()
-        withAnimation(.easeOut(duration: 0.15)) { selectedDay = selectedDay == item.day ? nil : item.day }
-    }
-
-    /// Per-day bars. Tap a day: it stays highlighted, its total shows above the chart and its transactions below it.
-    func chart(_ s: Stats) -> some View {
-        let budget = showPace(s) ? pace(s) : 0
-        let todayStart = Calendar.current.startOfDay(for: Date())
-        let days = chartDays(s)
-        let keys = days.map(\.key)
-        let sel = selectedDay
-        let selItem = days.first { $0.day == sel }
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                if let it = selItem, let v = it.value {
-                    Text(Fmt.day(it.day, store.lang)).font(.alx(14.5, .semibold)).foregroundStyle(p.label).lineLimit(1)
-                    Spacer(minLength: 6)
-                    Text("\u{200E}" + Fmt.m(v) + " " + store.t("cur")).font(.alx(15, .semibold)).monospacedDigit().foregroundStyle(p.label)
-                } else {
-                    Image(systemName: "hand.tap").font(.system(size: 13, weight: .semibold)).foregroundStyle(p.label3)
-                    Text(store.t("chartHint")).font(.alx(13)).foregroundStyle(p.label3)
-                    Spacer(minLength: 0)
-                }
-            }
-            .padding(.horizontal, 6).frame(minHeight: 28)
-            Chart {
-                ForEach(days) { item in
-                    if let v = item.value {
-                        BarMark(x: .value("Day", item.key), y: .value("QAR", v), width: .ratio(0.72))
-                            .foregroundStyle(item.day == todayStart ? Tok.tint : (budget > 0 && v > budget ? Tok.warning : p.label3.opacity(0.7)))
-                            .opacity(sel == nil || sel == item.day ? 1 : 0.3)
-                            .cornerRadius(3)
-                            .accessibilityLabel(Text(Fmt.day(item.day, store.lang)))
-                            .accessibilityValue(Text(Fmt.m(v) + " " + store.t("cur")))
-                    }
-                }
-                if budget > 0 {
-                    RuleMark(y: .value("Budget", budget))
-                        .foregroundStyle(p.label2)
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                }
-            }
-            // time runs right-to-left in Arabic: the order is set here, so taps map to the right day in both languages
-            .chartXScale(domain: store.lang == .ar ? Array(keys.reversed()) : keys)
-            .chartYAxis(.hidden)
-            .chartXAxis(.hidden)
-            .chartOverlay { proxy in
-                GeometryReader { geo in
-                    Rectangle().fill(Color.clear).contentShape(Rectangle())
-                        .onTapGesture { location in
-                            guard let frame = proxy.plotFrame else { return }
-                            let x = location.x - geo[frame].origin.x
-                            if let key: String = proxy.value(atX: x) { select(key, in: days) }
-                        }
-                }
-            }
-            .environment(\.layoutDirection, .leftToRight)
-            .frame(height: 150)
-            .overlay(alignment: .bottom) {
-                HStack {
-                    Text(Fmt.short(s.start, store.lang))
-                    Spacer()
-                    Text(Fmt.short(s.end.addingTimeInterval(-86400), store.lang))
-                }
-                .font(.alx(12)).foregroundStyle(p.label3)
-                .offset(y: 20)
-            }
-        }
-        .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 30)
-        .background(p.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .padding(.horizontal, 18)
-    }
-
-    /// The transactions of the day picked on the chart.
-    @ViewBuilder func dayList(_ day: Date) -> some View {
-        let txs = Ledger.transactions(store.data, on: day)
-        SectionHeader(title: store.t("dayTx", ["d": Fmt.short(day, store.lang)])) {
-            Text(store.t("txCount", ["n": "\(txs.count)"])).font(.alx(13)).foregroundStyle(p.label2)
-        }
-        if txs.isEmpty {
-            Text(store.t("noDayTx")).font(.alx(14)).foregroundStyle(p.label2).padding(.horizontal, 22)
-        } else {
-            SurfaceGroup {
-                ForEach(txs) { tx in
-                    if tx.id != txs.first?.id { RowDivider() }
-                    Button { nav.path.append(.detail(tx.id)) } label: { TxRow(tx: tx) }.buttonStyle(PressStyle())
-                }
-            }
-        }
-    }
-
-    func categoryRow(_ item: CategoryStat, total: Double) -> some View {
-        let share = total > 0 ? item.amount / total : 0
-        let pct = Int((share * 100).rounded())
-        let budgetNote = item.category.monthlyBudget.map { " · " + store.t("of") + " " + Fmt.m0($0) } ?? ""
-        return HStack(spacing: 12) {
-            Icon3D(name: item.category.symbol, size: 40, shadow: true)
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(item.category.name(store.lang)).font(.alx(15.5, .medium)).foregroundStyle(p.label)
-                    Spacer()
-                    Text("\u{200E}" + Fmt.m(item.amount)).font(.alx(15.5, .medium)).monospacedDigit().foregroundStyle(p.label)
-                }
-                ProgressBar(fraction: share, height: 7, colors: [Color(hexString: item.category.color), Color(hexString: item.category.color)])
-                Text("\(pct)" + (store.lang == .ar ? "٪" : "%") + budgetNote).font(.alx(12.5)).foregroundStyle(p.label2)
-            }
-        }
-        .padding(.horizontal, 16).padding(.vertical, 10)
-        .contentShape(Rectangle())
-    }
 }
 
 // MARK: - Settings
@@ -754,12 +491,33 @@ struct SettingsScreen: View {
     private let backgrounds: [BG] = [BG(id: "wine", key: "bgWine", color: Color(hex: 0x17080F)), BG(id: "navy", key: "bgNavy", color: Color(hex: 0x0B1020)),
                                      BG(id: "graphite", key: "bgGraphite", color: Color(hex: 0x121114))]
 
+    @State private var name = ""
+    @FocusState private var nameFocused: Bool
+
+    func saveName() {
+        let n = name.trimmingCharacters(in: .whitespaces)
+        if n != store.data.settings.name { store.update { $0.settings.name = n } }
+    }
+
     var body: some View {
         let st = store.data.settings
+        VStack(spacing: 0) {
+        NavBar(title: store.t("settings")) { BackButton() } trailing: { Color.clear.frame(width: 46, height: 46) }
         ScrollViewReader { proxy in
         ScrollView {
             VStack(spacing: 0) {
-                TopBar(title: store.t("settings"), bottom: 0) { EmptyView() }
+                SurfaceGroup {
+                    HStack(spacing: 14) {
+                        Icon3D(name: "id", size: 34)
+                        Text(store.t("yourName")).font(.alx(16)).foregroundStyle(p.label)
+                        TextField("", text: $name, prompt: Text(store.t("namePh")).foregroundColor(p.label3))
+                            .font(.alx(15.5)).foregroundStyle(p.label).multilineTextAlignment(.trailing)
+                            .focused($nameFocused).submitLabel(.done).onSubmit(saveName)
+                    }
+                    .padding(.horizontal, 16).frame(minHeight: 56)
+                }
+                .padding(.top, 4)
+                .onChange(of: nameFocused) { _, f in if !f { saveName() } }
 
                 SectionHeader(store.t("appearance"), strong: false)
                 SurfaceGroup {
@@ -856,9 +614,13 @@ struct SettingsScreen: View {
                     } else if let run = store.data.lastAutoRun {
                         RowDivider()
                         SettingRow(icon: "sms", title: store.t("lastRun"), chevron: false) { Text(Fmt.short(run, store.lang) + " · " + Fmt.time(run)) }
-                    } else if store.data.autoWaiting {
+                    } else if store.data.autoWaiting && store.data.lastApplePay == nil {
                         RowDivider()
                         SettingRow(icon: "sms", title: store.t("autoWaiting"), chevron: false) { EmptyView() }
+                    }
+                    if let ap = store.data.lastApplePay {
+                        RowDivider()
+                        SettingRow(icon: "card", title: store.t("apLast"), chevron: false) { Text(Fmt.short(ap, store.lang) + " · " + Fmt.time(ap)) }
                     }
                     RowDivider()
                     Button { store.update { $0.settings.onboarded = false } } label: {
@@ -894,13 +656,18 @@ struct SettingsScreen: View {
                 .font(.alx(12.5)).foregroundStyle(p.label3)
                 .padding(.horizontal, 24).padding(.top, 22)
             }
-            .padding(.bottom, 96)
+            .padding(.bottom, 40)
         }
         .scrollIndicators(.hidden)
+        .scrollDismissesKeyboard(.interactively)
         .onAppear { // screenshot check of the notifications section
             if Demo.screen == "settings-notif" { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { proxy.scrollTo("notif", anchor: .top) } }
         }
         }
+        }
+        .background(p.bg.ignoresSafeArea())
+        .onAppear { name = store.data.settings.name }
+        .onDisappear(perform: saveName)
         .task { await refreshNotif() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             Task { await refreshNotif() }   // back from iPhone Settings

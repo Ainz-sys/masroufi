@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Models
 
 enum TxKind: String, Codable { case debit, credit }
-enum TxSource: String, Codable { case sms, manual }
+enum TxSource: String, Codable { case sms, manual, applePay, receipt }
 enum Lang: String, Codable, CaseIterable { case ar, en }
 
 struct Transaction: Codable, Identifiable, Hashable {
@@ -28,9 +28,14 @@ struct Transaction: Codable, Identifiable, Hashable {
     var note: String = ""
     /// The person's own name for it (optional, so older saved data still loads).
     var title: String? = nil
+    /// "#رحلة_صلالة"-style tags, across categories.
+    var tags: [String]? = nil
+    /// false = logged automatically and still waiting for the person's look (review queue). nil/true = settled.
+    var reviewed: Bool? = nil
 
     /// Counts toward spending (expenses that were not excluded).
     var counts: Bool { kind == .debit && !excluded }
+    var needsReview: Bool { reviewed == false }
     /// Shown everywhere: the person's name for it, else the merchant read from the bank message.
     var displayName: String {
         if let t = title?.trimmingCharacters(in: .whitespaces), !t.isEmpty { return t }
@@ -48,12 +53,20 @@ struct Category: Codable, Identifiable, Hashable {
     var monthlyBudget: Double? = nil
     var alertAt80: Bool = true
     var builtIn: Bool = false
+    /// "fixed" (rent, bills: the same every month) or "flex". nil = the default for this category.
+    var group: String? = nil
+    /// Unspent budget moves to the next month.
+    var rollover: Bool = false
 
     init(id: String, nameAR: String, nameEN: String, symbol: String, color: String = "#A19DA8", monthlyBudget: Double? = nil,
-         alertAt80: Bool = true, builtIn: Bool = false) {
+         alertAt80: Bool = true, builtIn: Bool = false, group: String? = nil, rollover: Bool = false) {
         self.id = id; self.nameAR = nameAR; self.nameEN = nameEN; self.symbol = symbol; self.color = color
         self.monthlyBudget = monthlyBudget; self.alertAt80 = alertAt80; self.builtIn = builtIn
+        self.group = group; self.rollover = rollover
     }
+
+    static let fixedByDefault: Set<String> = ["bills", "rent", "subscriptions", "home"]
+    var isFixed: Bool { group.map { $0 == "fixed" } ?? Category.fixedByDefault.contains(id) }
 
     init(from decoder: Decoder) throws { // also migrates the first version, which stored SF Symbol names
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -67,6 +80,8 @@ struct Category: Codable, Identifiable, Hashable {
         monthlyBudget = try c.decodeIfPresent(Double.self, forKey: .monthlyBudget)
         alertAt80 = try c.decodeIfPresent(Bool.self, forKey: .alertAt80) ?? true
         builtIn = try c.decodeIfPresent(Bool.self, forKey: .builtIn) ?? false
+        group = try c.decodeIfPresent(String.self, forKey: .group)
+        rollover = try c.decodeIfPresent(Bool.self, forKey: .rollover) ?? false
     }
 
     func name(_ lang: Lang) -> String { lang == .ar ? nameAR : nameEN }
@@ -258,6 +273,12 @@ struct Settings: Codable {
     var background: String = "wine"
     /// "auto" (follows the iPhone's screen size), "s", "m" or "l".
     var textSize: String = "auto"
+    /// "flex" (fixed + flexible + non-monthly) or "category" (a budget per category).
+    var budgetMode: String = "flex"
+    /// Planned fixed costs per month. 0 = estimate them from last month's fixed categories.
+    var fixedPlanned: Double = 0
+    /// Your first name, for the greeting ("" = no name).
+    var name: String = ""
 
     init() {}
     init(from decoder: Decoder) throws { // tolerant of missing keys from older versions
@@ -276,7 +297,29 @@ struct Settings: Codable {
         onboarded = try c.decodeIfPresent(Bool.self, forKey: .onboarded) ?? false
         background = try c.decodeIfPresent(String.self, forKey: .background) ?? "wine"
         textSize = try c.decodeIfPresent(String.self, forKey: .textSize) ?? "auto"
+        budgetMode = try c.decodeIfPresent(String.self, forKey: .budgetMode) ?? "flex"
+        fixedPlanned = try c.decodeIfPresent(Double.self, forKey: .fixedPlanned) ?? 0
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
     }
+}
+
+struct PlannedExpense: Codable, Identifiable, Hashable {
+    var id: String = UUID().uuidString
+    var name: String
+    var icon: String = "calendar"
+    var yearly: Double            // the whole yearly amount
+    var month: Int = 1            // month it is due (1–12)
+    /// Spending in this category counts here, not in the flexible part.
+    var categoryID: String? = nil
+    var monthly: Double { yearly / 12 }
+}
+
+struct MerchantBudget: Codable, Identifiable, Hashable {
+    var id: String = UUID().uuidString
+    var name: String
+    var icon: String = "shopping"
+    var keys: [String]            // merchant keys counted together
+    var amount: Double
 }
 
 struct AppData: Codable {
@@ -290,6 +333,11 @@ struct AppData: Codable {
     var lastAuto: Date? = nil          // last transaction logged by the automation
     var lastAutoRun: Date? = nil       // last time the automation ran at all (even for a message that isn't a purchase)
     var autoConfirmed: Date? = nil     // the person said they finished setting the automation up
+    var lastApplePay: Date? = nil      // last purchase logged by the Apple Pay (Wallet) automation
+    /// Costs that don't come every month (car insurance, school fees): set aside a twelfth each month.
+    var planned: [PlannedExpense] = []
+    /// A budget for one or more merchants together ("Talabat + Snoonu").
+    var merchantBudgets: [MerchantBudget] = []
 
     /// The automation counts as on once it has run, or once the person confirmed they set it up.
     var autoOn: Bool { lastAuto != nil || lastAutoRun != nil || autoConfirmed != nil }
@@ -309,6 +357,9 @@ struct AppData: Codable {
         lastAuto = try c.decodeIfPresent(Date.self, forKey: .lastAuto)
         lastAutoRun = try c.decodeIfPresent(Date.self, forKey: .lastAutoRun)
         autoConfirmed = try c.decodeIfPresent(Date.self, forKey: .autoConfirmed)
+        lastApplePay = try c.decodeIfPresent(Date.self, forKey: .lastApplePay)
+        planned = try c.decodeIfPresent([PlannedExpense].self, forKey: .planned) ?? []
+        merchantBudgets = try c.decodeIfPresent([MerchantBudget].self, forKey: .merchantBudgets) ?? []
     }
 
     func category(_ id: String) -> Category {
@@ -463,7 +514,7 @@ enum Ledger {
         return Transaction(date: date, noTime: noTime, addedAt: now, amount: p.amount, currency: p.currency, amountHome: p.amountHome,
                            kind: p.kind, merchant: p.merchant, merchantKey: p.merchantKey, categoryID: cat, card: p.card,
                            account: p.account, balance: p.balance, bank: p.bank, raw: raw.trimmingCharacters(in: .whitespacesAndNewlines),
-                           source: .sms, title: data.merchantNames[p.merchantKey])
+                           source: .sms, title: data.merchantNames[p.merchantKey], reviewed: live ? false : nil)
     }
 
     static func isDuplicate(_ d: AppData, _ p: ParsedSMS, now: Date) -> Bool {
@@ -478,12 +529,26 @@ enum Ledger {
         var items: [(ParsedSMS, String)] = []
         if let whole = SMSParser.parse(text) { items = [(whole, text)] } else { items = parseMany(text) }
         var r = LogResult()
+        var merged = false
         for (p, raw) in items where !isDuplicate(d, p, now: now) {
+            // the same purchase was already logged a moment ago by Apple Pay: add the bank's details to it instead
+            if p.kind == .debit, let i = applePayMatch(d, amountHome: p.amountHome, now: now) {
+                d.transactions[i].raw = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                d.transactions[i].bank = p.bank
+                if d.transactions[i].card.isEmpty { d.transactions[i].card = p.card }
+                d.transactions[i].account = p.account
+                d.transactions[i].balance = p.balance
+                merged = true
+                continue
+            }
             let tx = transaction(from: p, raw: raw, data: d, now: now, live: true)
             d.transactions.append(tx)
             r.added.append(tx)
         }
-        if r.added.isEmpty { r.status = items.isEmpty ? "ignored" : "duplicate"; return r }
+        if r.added.isEmpty {
+            if merged { d.lastAuto = now; r.status = "merged"; return r }
+            r.status = items.isEmpty ? "ignored" : "duplicate"; return r
+        }
         d.lastAuto = now
         r.alerts = checkAlerts(&d, now: now)
         r.status = "logged"

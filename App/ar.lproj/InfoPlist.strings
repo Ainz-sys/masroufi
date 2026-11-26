@@ -1,2 +1,3 @@
 "CFBundleDisplayName" = "مصروفي";
 "CFBundleName" = "مصروفي";
+"NSCameraUsageDescription" = "مصروفي يستخدم الكاميرا عشان يقرأ الإيصال اللي تصوّره. الصورة تبقى على جوالك.";

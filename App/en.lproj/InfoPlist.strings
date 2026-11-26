@@ -1,1 +1,2 @@
 "CFBundleDisplayName" = "Masroufi";
+"NSCameraUsageDescription" = "Masroufi uses the camera to read a receipt you scan. The photo stays on your iPhone.";

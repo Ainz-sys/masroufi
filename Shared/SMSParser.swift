@@ -133,6 +133,21 @@ enum SMSParser {
         return spacesRE.replace(out, with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Amount and currency from a short text such as "QAR 64.00", "64 ر.ق" or "$12.50" (the Wallet automation's Amount).
+    static func parseAmount(_ raw: String) -> (value: Double, currency: String, home: Double)? {
+        let s = normalize(raw).replacingOccurrences(of: "$", with: "USD ").replacingOccurrences(of: "€", with: "EUR ").replacingOccurrences(of: "£", with: "GBP ")
+        if let m = pairRE.first(s) {
+            let curTok = group(m, 1, in: s) ?? group(m, 4, in: s) ?? ""
+            let numTok = group(m, 2, in: s) ?? group(m, 3, in: s) ?? ""
+            if let cur = currencyCode(curTok), let v = Double(numTok.replacingOccurrences(of: ",", with: "")), v > 0 {
+                return (v, cur, ((v * (toQAR[cur] ?? 1)) * 100).rounded() / 100)
+            }
+        }
+        let numRE = rx(#"[0-9][0-9,]*(?:\.[0-9]+)?"#)
+        guard let m = numRE.first(s), let v = Double((s as NSString).substring(with: m.range).replacingOccurrences(of: ",", with: "")), v > 0 else { return nil }
+        return (v, "QAR", v)
+    }
+
     static func currencyCode(_ token: String) -> String? {
         let t = token.trimmingCharacters(in: .whitespaces)
         for (r, code) in curCodes where r.test(t) { return code }

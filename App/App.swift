@@ -86,6 +86,71 @@ final class Store: ObservableObject {
         return r
     }
 
+    /// Logging from the Apple Pay (Wallet) automation.
+    @discardableResult
+    func logApplePay(amount: String, merchant: String, card: String) -> LogResult {
+        var d = Persistence.load()
+        let r = Ledger.logApplePay(amount: amount, merchant: merchant, card: card, into: &d)
+        data = d
+        Persistence.save(d)
+        if !r.added.isEmpty {
+            WidgetCenter.shared.reloadAllTimelines()
+            Notifier.announce(r, data: d)
+        }
+        return r
+    }
+
+    // Review queue
+    func confirm(_ id: String) { update { d in if let i = d.transactions.firstIndex(where: { $0.id == id }) { d.transactions[i].reviewed = true } } }
+
+    /// Confirms with a category, and (optionally) remembers it for every transaction from this merchant.
+    func confirm(_ id: String, category: String, always: Bool) {
+        update { d in
+            guard let i = d.transactions.firstIndex(where: { $0.id == id }) else { return }
+            d.transactions[i].categoryID = category
+            d.transactions[i].reviewed = true
+            let key = d.transactions[i].merchantKey
+            if always, !key.isEmpty {
+                d.merchantMap[key] = category
+                for j in d.transactions.indices where d.transactions[j].merchantKey == key { d.transactions[j].categoryID = category }
+            }
+        }
+    }
+
+    func confirmAll() { update { d in for i in d.transactions.indices where d.transactions[i].needsReview { d.transactions[i].reviewed = true } } }
+
+    // Tags
+    func addTag(_ id: String, _ raw: String) {
+        let t = raw.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "#", with: "").replacingOccurrences(of: " ", with: "_")
+        guard !t.isEmpty else { return }
+        update { d in
+            guard let i = d.transactions.firstIndex(where: { $0.id == id }) else { return }
+            var tags = d.transactions[i].tags ?? []
+            if !tags.contains(t) { tags.append(t) }
+            d.transactions[i].tags = tags
+        }
+    }
+
+    func removeTag(_ id: String, _ t: String) {
+        update { d in
+            guard let i = d.transactions.firstIndex(where: { $0.id == id }) else { return }
+            d.transactions[i].tags?.removeAll { $0 == t }
+            if d.transactions[i].tags?.isEmpty == true { d.transactions[i].tags = nil }
+        }
+    }
+
+    var allTags: [String] { Array(Set(data.transactions.flatMap { $0.tags ?? [] })).sorted() }
+
+    // Planning
+    func savePlanned(_ p: PlannedExpense) {
+        update { d in if let i = d.planned.firstIndex(where: { $0.id == p.id }) { d.planned[i] = p } else { d.planned.append(p) } }
+    }
+    func deletePlanned(_ id: String) { update { $0.planned.removeAll { $0.id == id } } }
+    func saveMerchantBudget(_ b: MerchantBudget) {
+        update { d in if let i = d.merchantBudgets.firstIndex(where: { $0.id == b.id }) { d.merchantBudgets[i] = b } else { d.merchantBudgets.append(b) } }
+    }
+    func deleteMerchantBudget(_ id: String) { update { $0.merchantBudgets.removeAll { $0.id == id } } }
+
     /// The person finished setting up the automation in Shortcuts (iOS doesn't let apps check this themselves).
     func confirmAuto() { update { $0.autoConfirmed = $0.autoConfirmed ?? Date() } }
 
@@ -101,10 +166,10 @@ final class Store: ObservableObject {
         return n
     }
 
-    func addManual(amount: Double, merchant: String, categoryID: String, date: Date, kind: TxKind) {
+    func addManual(amount: Double, merchant: String, categoryID: String, date: Date, kind: TxKind, source: TxSource = .manual) {
         let m = merchant.trimmingCharacters(in: .whitespaces)
         update { $0.transactions.append(Transaction(date: date, amount: amount, amountHome: amount, kind: kind, merchant: m,
-                                                     merchantKey: SMSParser.merchantKey(m), categoryID: categoryID, source: .manual)) }
+                                                     merchantKey: SMSParser.merchantKey(m), categoryID: categoryID, source: source)) }
     }
 
     func editTx(_ id: String, _ change: @escaping (inout Transaction) -> Void) {
@@ -115,6 +180,7 @@ final class Store: ObservableObject {
         update { d in
             guard let i = d.transactions.firstIndex(where: { $0.id == id }) else { return }
             d.transactions[i].categoryID = cat
+            if d.transactions[i].reviewed == false { d.transactions[i].reviewed = true }   // picking a category settles it
             let key = d.transactions[i].merchantKey
             if !key.isEmpty, d.merchantMap[key] != nil { d.merchantMap[key] = cat }
         }
@@ -234,6 +300,29 @@ struct LogBankMessageIntent: AppIntent {
     }
 }
 
+/// Used by the Shortcuts automation "Transaction" (Wallet): runs the moment a card in Wallet is used with Apple Pay.
+struct LogApplePayIntent: AppIntent {
+    static var title: LocalizedStringResource = "سجّل دفعة Apple Pay"
+    static var description = IntentDescription("يسجّل الدفعة في مصروفي لحظة ما تدفع بـ Apple Pay. Logs an Apple Pay purchase as you pay.")
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "المبلغ")
+    var amount: String
+
+    @Parameter(title: "التاجر")
+    var merchant: String
+
+    @Parameter(title: "البطاقة")
+    var card: String?
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        let r = Store.shared.logApplePay(amount: amount, merchant: merchant, card: card ?? "")
+        guard let tx = r.added.last else { return .result(value: r.status) }
+        return .result(value: "logged \(Fmt.m(tx.amountHome)) QAR · \(tx.displayName)")
+    }
+}
+
 struct TodaySummaryIntent: AppIntent {
     static var title: LocalizedStringResource = "كم باقي من ميزانيتي؟"
     static var openAppWhenRun: Bool = false
@@ -249,6 +338,8 @@ struct MasroufiShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: LogBankMessageIntent(), phrases: ["سجّل رسالة البنك في \(.applicationName)", "Log a bank message in \(.applicationName)"],
                     shortTitle: "سجّل رسالة البنك", systemImageName: "message")
+        AppShortcut(intent: LogApplePayIntent(), phrases: ["سجّل دفعة Apple Pay في \(.applicationName)", "Log an Apple Pay purchase in \(.applicationName)"],
+                    shortTitle: "سجّل دفعة Apple Pay", systemImageName: "wave.3.right.circle")
         AppShortcut(intent: TodaySummaryIntent(), phrases: ["كم باقي من ميزانيتي في \(.applicationName)", "What's left of my budget in \(.applicationName)"],
                     shortTitle: "كم باقي من ميزانيتي؟", systemImageName: "wallet.pass")
     }

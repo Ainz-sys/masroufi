@@ -87,43 +87,23 @@ jobs:
             xcrun simctl io "$1" screenshot "shots/$5.png" >/dev/null
           }
           prep "$UDID"
-          for s in ob0 ob1 ob2 ob3 ob4 ob5 today today-empty txs insights settings detail add add-paste newcat budget guide guide-off categories; do
+          for s in today txs txs-review review pick plan planned mb fixed analytics analytics-trends analytics-cal settings detail add add-receipt add-paste guide editcat ob3; do
             shoot "$UDID" "$s" ar wine "$s"
           done
-          shoot "$UDID" today en navy en-today
-          # new in this version: icon suggested from a category name, renaming, a day picked on the chart
-          xcrun simctl terminate "$UDID" com.masroufi.app >/dev/null 2>&1 || true
-          xcrun simctl launch "$UDID" com.masroufi.app -masroufiDemo newcat-barber -masroufiLang ar -masroufiBG wine -masroufiCatName "حلاق" >/dev/null; sleep 7
-          xcrun simctl io "$UDID" screenshot shots/newcat-barber.png >/dev/null
-          xcrun simctl terminate "$UDID" com.masroufi.app >/dev/null 2>&1 || true
-          xcrun simctl launch "$UDID" com.masroufi.app -masroufiDemo rename -masroufiLang ar -masroufiBG wine -masroufiRename "محطة وقود الضعاين" >/dev/null; sleep 7
-          xcrun simctl io "$UDID" screenshot shots/rename.png >/dev/null
-          xcrun simctl terminate "$UDID" com.masroufi.app >/dev/null 2>&1 || true
-          xcrun simctl launch "$UDID" com.masroufi.app -masroufiDemo insights-day -masroufiLang ar -masroufiBG wine -masroufiChartDay -1 >/dev/null; sleep 7
-          xcrun simctl io "$UDID" screenshot shots/insights-day.png >/dev/null
-          shoot "$UDID" settings-notif ar wine settings-notif
-          # the widest poses the card can take (worked out from its motion limits), on a tinted stage
-          shoot "$UDID" today ar wine pose-flip "129,-0.08,0,0.846"
-          shoot "$UDID" today ar wine pose-drag "0,-0.25,0.06,1"
-          shoot "$UDID" insights en graphite en-insights
+          for s in today plan analytics review; do shoot "$UDID" "$s" en navy "en-$s"; done
           xcrun simctl ui "$UDID" content_size accessibility-extra-extra-extra-large
-          shoot "$UDID" today ar wine xxxl-today
-          shoot "$UDID" settings ar wine xxxl-settings
+          for s in today review plan; do shoot "$UDID" "$s" ar wine "xxxl-$s"; done
           xcrun simctl ui "$UDID" content_size large
           SMALL=$(python3 .github/pick_sim.py small)
           if [ -n "$SMALL" ]; then
             prep "$SMALL"
-            for s in today txs insights settings detail budget ob0 ob3; do shoot "$SMALL" "$s" ar wine "small-$s"; done
-            for s in today settings; do shoot "$SMALL" "$s" ar wine "small-large-$s" "" l; done   # Text size: Large on the smallest screen
+            for s in today txs review plan analytics add settings; do shoot "$SMALL" "$s" ar wine "small-$s"; done
             xcrun simctl shutdown "$SMALL" || true
           fi
           MAX=$(python3 .github/pick_sim.py max)
           if [ -n "$MAX" ]; then
             prep "$MAX"
-            for s in today txs insights settings; do shoot "$MAX" "$s" ar wine "max-$s"; done
-            shoot "$MAX" today ar wine max-pose-flip "129,-0.08,0,0.846"
-            shoot "$MAX" today ar wine max-pose-drag "180,-0.25,0.06,1"
-            shoot "$MAX" today en wine max-en-today
+            for s in today txs plan analytics review add; do shoot "$MAX" "$s" ar wine "max-$s"; done
           fi
           xcrun simctl list devices booted > shots/devices.txt
       - name: Publish screenshots on the "shots" branch
