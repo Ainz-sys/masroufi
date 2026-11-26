@@ -489,7 +489,7 @@ struct FloatingTabBar: View {
         .accessibilityLabel(store.t("addTx"))
     }
 
-    func tabButton(_ item: Item, _ tab: AppTab) -> some View {
+    private func tabButton(_ item: Item, _ tab: AppTab) -> some View {
                 let selected = nav.tab == tab
                 return Button {
                     if nav.tab != tab { UISelectionFeedbackGenerator().selectionChanged() }
