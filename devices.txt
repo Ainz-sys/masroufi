@@ -1,0 +1,19 @@
+== Devices ==
+-- iOS 18.5 --
+-- iOS 18.6 --
+-- iOS 26.0 --
+-- iOS 26.1 --
+-- iOS 26.2 --
+    iPhone 17 Pro (40A21894-B2EA-46E8-86C3-96B6C28B749F) (Booted) 
+    iPhone SE (3rd generation) (1A85B48F-CECD-47A0-955A-506ACA3DE106) (Booted) 
+-- tvOS 18.5 --
+-- tvOS 26.1 --
+-- tvOS 26.2 --
+-- watchOS 11.5 --
+-- watchOS 26.1 --
+-- watchOS 26.2 --
+-- visionOS 2.3 --
+-- visionOS 2.4 --
+-- visionOS 2.5 --
+-- visionOS 26.1 --
+-- visionOS 26.2 --
