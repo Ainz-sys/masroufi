@@ -161,6 +161,7 @@ final class Store: ObservableObject {
         update { d in
             for (p, raw) in Ledger.parseMany(text) where !d.transactions.contains(where: { $0.raw == raw.trimmingCharacters(in: .whitespacesAndNewlines) }) {
                 d.transactions.append(Ledger.transaction(from: p, raw: raw, data: d, now: Date(), live: false, undated: undated)); n += 1
+                if p.kind == .credit { Ledger.linkRefund(&d, credit: d.transactions.count - 1, keyword: SMSParser.isRefundText(raw)) }
             }
         }
         return n
@@ -196,7 +197,23 @@ final class Store: ObservableObject {
         }
     }
 
-    func deleteTx(_ id: String) { update { $0.transactions.removeAll { $0.id == id } } }
+    /// Deleting a purchase deletes its refunds too; deleting a refund gives the purchase its amount back.
+    func deleteTx(_ id: String) {
+        update { d in
+            if let tx = d.transactions.first(where: { $0.id == id }), tx.isRefund { Ledger.unlinkRefund(&d, credit: id) }
+            d.transactions.removeAll { $0.id == id || $0.refundOf == id }
+        }
+    }
+
+    // Refunds
+    func unlinkRefund(_ creditID: String) { update { Ledger.unlinkRefund(&$0, credit: creditID) } }
+
+    func linkRefund(_ creditID: String, to purchaseID: String) {
+        update { d in
+            guard let ci = d.transactions.firstIndex(where: { $0.id == creditID }), let ti = d.transactions.firstIndex(where: { $0.id == purchaseID }) else { return }
+            Ledger.link(&d, credit: ci, purchase: ti)
+        }
+    }
 
     /// Renames a transaction. With `all`, every transaction from the same merchant gets the name, and new ones will too.
     /// An empty name (or the original one) goes back to the merchant from the bank message.
@@ -271,6 +288,12 @@ enum Notifier {
     static func announce(_ r: LogResult, data d: AppData) {
         guard let tx = r.added.last else { return }
         let lang = d.settings.language
+        if let pid = tx.refundOf { // money back for a purchase: say so, and that it no longer counts
+            let p = d.transactions.first { $0.id == pid }
+            let name = (p?.displayName.isEmpty == false ? p?.displayName : nil) ?? tx.displayName
+            send(L10n.t("nRefundT", lang, ["a": Fmt.m(tx.amountHome)]), L10n.t("nRefundB", lang, ["m": name]) + "\n" + monthLine(d))
+            return
+        }
         let title = L10n.t(tx.kind == .credit ? "nCredit" : "nDebit", lang, ["a": Fmt.m(tx.amountHome), "c": d.category(tx.categoryID).name(lang)])
         if let first = r.alerts.first {
             let (t0, b0) = alertText(first, d)

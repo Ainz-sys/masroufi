@@ -32,9 +32,20 @@ struct Transaction: Codable, Identifiable, Hashable {
     var tags: [String]? = nil
     /// false = logged automatically and still waiting for the person's look (review queue). nil/true = settled.
     var reviewed: Bool? = nil
+    /// On money that came back (a reversal or refund): the purchase it was for.
+    var refundOf: String? = nil
+    /// On a purchase: how much of it came back, and when.
+    var refunded: Double? = nil
+    var refundedAt: Date? = nil
+    /// The person said this incoming money is not a refund (so it is never linked again).
+    var notRefund: Bool? = nil
 
-    /// Counts toward spending (expenses that were not excluded).
-    var counts: Bool { kind == .debit && !excluded }
+    var isRefund: Bool { refundOf != nil }
+    var refundedFully: Bool { (refunded ?? 0) >= amountHome - 0.011 }
+    /// Counts toward spending (expenses that were not excluded or fully refunded).
+    var counts: Bool { kind == .debit && !excluded && !refundedFully }
+    /// What it costs in the end: the amount minus any refund.
+    var spentHome: Double { counts ? max(0, amountHome - (refunded ?? 0)) : 0 }
     var needsReview: Bool { reviewed == false }
     /// Shown everywhere: the person's name for it, else the merchant read from the bank message.
     var displayName: String {
@@ -334,6 +345,7 @@ struct AppData: Codable {
     var lastAutoRun: Date? = nil       // last time the automation ran at all (even for a message that isn't a purchase)
     var autoConfirmed: Date? = nil     // the person said they finished setting the automation up
     var lastApplePay: Date? = nil      // last purchase logged by the Apple Pay (Wallet) automation
+    var refundsChecked: Bool? = nil    // older reversals were linked to their purchases (1.3.1)
     /// Costs that don't come every month (car insurance, school fees): set aside a twelfth each month.
     var planned: [PlannedExpense] = []
     /// A budget for one or more merchants together ("Talabat + Snoonu").
@@ -358,6 +370,7 @@ struct AppData: Codable {
         lastAutoRun = try c.decodeIfPresent(Date.self, forKey: .lastAutoRun)
         autoConfirmed = try c.decodeIfPresent(Date.self, forKey: .autoConfirmed)
         lastApplePay = try c.decodeIfPresent(Date.self, forKey: .lastApplePay)
+        refundsChecked = try c.decodeIfPresent(Bool.self, forKey: .refundsChecked)
         planned = try c.decodeIfPresent([PlannedExpense].self, forKey: .planned) ?? []
         merchantBudgets = try c.decodeIfPresent([MerchantBudget].self, forKey: .merchantBudgets) ?? []
     }
@@ -443,7 +456,7 @@ enum Ledger {
     static var cal: Calendar { Calendar.current }
 
     static func spent(_ d: AppData, from: Date, to: Date) -> Double {
-        d.transactions.filter { $0.counts && $0.date >= from && $0.date < to }.reduce(0) { $0 + $1.amountHome }
+        d.transactions.filter { $0.counts && $0.date >= from && $0.date < to }.reduce(0) { $0 + $1.spentHome }
     }
 
     static func dayBounds(_ date: Date) -> (start: Date, end: Date) {
@@ -490,7 +503,7 @@ enum Ledger {
 
     static func transactions(_ d: AppData, on day: Date) -> [Transaction] {
         let b = dayBounds(day)
-        return d.transactions.filter { $0.date >= b.start && $0.date < b.end }.sorted { $0.date > $1.date }
+        return d.transactions.filter { !$0.isRefund && $0.date >= b.start && $0.date < b.end }.sorted { $0.date > $1.date }
     }
 
     /// Builds a transaction from a parsed SMS. `live` = arriving now from the automation.
@@ -543,7 +556,9 @@ enum Ledger {
             }
             let tx = transaction(from: p, raw: raw, data: d, now: now, live: true)
             d.transactions.append(tx)
-            r.added.append(tx)
+            // money coming back for a purchase (a reversal or refund): linked to it, so it isn't spending or income
+            if tx.kind == .credit { _ = linkRefund(&d, credit: d.transactions.count - 1, keyword: SMSParser.isRefundText(raw)) }
+            r.added.append(d.transactions[d.transactions.count - 1])
         }
         if r.added.isEmpty {
             if merged { d.lastAuto = now; r.status = "merged"; return r }
@@ -582,7 +597,7 @@ enum Ledger {
         }
         for c in d.categories {
             guard let budget = c.monthlyBudget, budget > 0, c.alertAt80 else { continue }
-            let s = d.transactions.filter { $0.categoryID == c.id && $0.counts && $0.date >= cy.start && $0.date < cy.end }.reduce(0) { $0 + $1.amountHome }
+            let s = d.transactions.filter { $0.categoryID == c.id && $0.counts && $0.date >= cy.start && $0.date < cy.end }.reduce(0) { $0 + $1.spentHome }
             if s > budget {
                 if !catFlags.contains(c.id + ":100") { catFlags.formUnion([c.id + ":80", c.id + ":100"]); out.append(BudgetAlert(kind: .categoryOver, spent: s, budget: budget, categoryID: c.id)) }
             } else if s >= 0.8 * budget && !catFlags.contains(c.id + ":80") {
@@ -613,6 +628,13 @@ enum Ledger {
     /// Re-cleans transactions saved by older versions (merchant names, categories). Returns true if anything changed.
     static func repair(_ d: inout AppData) -> Bool {
         var changed = false
+        if d.refundsChecked != true { // once: link reversals that were logged as income before version 1.3.1
+            d.refundsChecked = true
+            changed = true
+            let credits = d.transactions.indices.filter { d.transactions[$0].kind == .credit && d.transactions[$0].refundOf == nil }
+                .sorted { d.transactions[$0].date < d.transactions[$1].date }
+            for i in credits { _ = linkRefund(&d, credit: i, keyword: SMSParser.isRefundText(d.transactions[i].raw)) }
+        }
         for i in d.transactions.indices {
             let old = d.transactions[i]
             let clean = SMSParser.cleanMerchant(old.merchant)

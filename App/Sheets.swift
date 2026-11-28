@@ -140,6 +140,7 @@ struct DetailScreen: View {
                 if tx.currency != "QAR" {
                     Text("\u{200E}" + tx.currency + " " + Fmt.m(tx.amount)).font(.alx(14)).foregroundStyle(p.label2).padding(.horizontal, 18)
                 }
+                refundSection(tx)
                 SurfaceGroup {
                     let facts = factRows(tx)
                     ForEach(facts, id: \.self) { f in
@@ -250,6 +251,66 @@ struct DetailScreen: View {
         }
         .scrollIndicators(.hidden)
         .scrollDismissesKeyboard(.interactively)
+    }
+
+    /// Money that came back for this purchase (or, on incoming money, the purchase it may give back).
+    @ViewBuilder func refundSection(_ tx: Transaction) -> some View {
+        let lang = store.lang
+        if let back = tx.refunded, back > 0 {
+            let refunds = Ledger.refunds(store.data, of: tx.id)
+            let when = refunds.last.map { dayLabel($0.date, store) + ($0.noTime ? "" : " " + Fmt.time($0.date)) } ?? ""
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.uturn.backward.circle.fill").font(.system(size: 20))
+                    Text(store.t(tx.refundedFully ? "refundT" : "refundPartT")).font(.alx(16.5, .semibold))
+                }
+                .foregroundStyle(Tok.positive)
+                Text(tx.refundedFully ? store.t("refundP", ["a": Fmt.m(back), "d": when])
+                                      : store.t("refundPartP", ["a": Fmt.m(back), "d": when, "n": Fmt.m(tx.spentHome)]))
+                    .font(.alx(14)).foregroundStyle(p.label).fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .background(Tok.positive.opacity(0.12), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .padding(.horizontal, 18).padding(.top, 14)
+            ForEach(refunds) { r in
+                if !r.raw.isEmpty {
+                    SectionHeader(store.t("refundMsg"), strong: false)
+                    BankBubble(raw: r.raw)
+                }
+                HStack {
+                    TextAction(title: store.t("notRefund"), color: p.label2, weight: .medium) { store.unlinkRefund(r.id) }
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+            }
+        } else if let pid = tx.refundOf {
+            let purchase = store.data.transactions.first { $0.id == pid }
+            VStack(alignment: .leading, spacing: 8) {
+                Text(store.t("refundOfT") + " «" + (purchase?.displayName ?? "") + "»").font(.alx(15.5, .semibold)).foregroundStyle(Tok.positive)
+                TextAction(title: store.t("notRefund"), color: p.label2, weight: .medium) { store.unlinkRefund(tx.id) }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .background(Tok.positive.opacity(0.12), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .padding(.horizontal, 18).padding(.top, 14)
+        } else if tx.kind == .credit, tx.notRefund != true, let purchase = Ledger.likelyPurchase(store.data, for: tx) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(store.t("isRefundQ", ["m": purchase.displayName.isEmpty ? store.data.category(purchase.categoryID).name(lang) : purchase.displayName]))
+                    .font(.alx(16, .semibold)).foregroundStyle(p.label)
+                Text(store.t("isRefundP", ["d": dayLabel(purchase.date, store)])).font(.alx(13.5)).foregroundStyle(p.label2)
+                    .fixedSize(horizontal: false, vertical: true)
+                SmallButton(title: store.t("linkRefund")) {
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    store.linkRefund(tx.id, to: purchase.id)
+                }
+                .padding(.top, 6)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .background(p.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .padding(.horizontal, 18).padding(.top, 14)
+        }
     }
 
     func factRows(_ tx: Transaction) -> [[String]] {

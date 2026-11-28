@@ -235,6 +235,13 @@ struct TxRow: View {
                         .accessibilityLabel(sourceName)
                     Text(c.name(store.lang) + (tx.noTime ? "" : " · " + Fmt.time(tx.date)))
                         .font(.alx(14, relativeTo: .subheadline)).foregroundStyle(p.label2).lineLimit(1)
+                    if let back = tx.refunded, back > 0 {
+                        Text(tx.refundedFully ? store.t("refundedFull") : store.t("refundedPart", ["n": Fmt.m0(back)]))
+                            .font(.alx(11, .semibold, relativeTo: .caption2)).foregroundStyle(Tok.positive)
+                            .padding(.horizontal, 7).frame(height: 20)
+                            .background(Capsule().fill(Tok.positive.opacity(0.15)))
+                            .fixedSize()
+                    }
                     if tx.needsReview {
                         Text(store.t("reviewTag")).font(.alx(11, .semibold, relativeTo: .caption2)).foregroundStyle(Tok.tintInk)
                             .padding(.horizontal, 7).frame(height: 20)
@@ -246,7 +253,9 @@ struct TxRow: View {
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 0) {
                 Text((credit ? "+" : "") + Fmt.m(tx.amountHome))
-                    .font(.alx(18, .semibold)).monospacedDigit().foregroundStyle(credit ? Tok.positive : p.label)
+                    .font(.alx(18, .semibold)).monospacedDigit()
+                    .strikethrough(!credit && tx.refunded != nil && tx.refundedFully, color: p.label2)
+                    .foregroundStyle(credit ? Tok.positive : (tx.refunded != nil && tx.refundedFully ? p.label2 : p.label))
                     .environment(\.layoutDirection, .leftToRight)
                 Text(store.t("cur")).font(.alx(12.5, relativeTo: .caption)).foregroundStyle(p.label2)
             }

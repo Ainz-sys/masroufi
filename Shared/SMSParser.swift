@@ -77,6 +77,7 @@ enum SMSParser {
     static let creditRE = rx(#"\b(?:credited|credit(?!\s*card)(?:ed)?\s+(?:of|to|in)|deposit(?:ed)?|received|salary|refund(?:ed)?|reversal|reversed|cash\s*back|inward|transfer\s+from|added\s+to)\b|إيداع|ايداع|أودع|اودع|تمت?\s+إضافة|اضافة\s+مبلغ|راتب|استرداد|استرجاع|مرتجع|حوالة\s+واردة|تحويل\s+وارد|دائن"#)
     static let debitRE = rx(#"\b(?:debit(?:ed)?|purchase[sd]?|spent|paid|payment|withdrawn|withdrawal|atm|pos|used\s+(?:for|at)|charged|transfer(?:red)?\s+to|sent\s+to|outward|deducted)\b|شراء|مشتريات|خصم|سحب|دفع|سداد|مدين|حوالة\s+صادرة|تحويل\s+صادر|استخدام\s+بطاقت|تم\s+استخدام"#)
     static let promoRE = rx(#"\b(?:offer|promo|discount|win|enjoy|get\s+\d+%|cashback\s+up\s+to|apply\s+now|click|visit)\b|عرض|خصم\s+\d+\s?%|اربح|استمتع|سارع"#)
+    static let reversalRE = rx(#"\b(?:refund(?:ed)?|reversal|reversed|chargeback)\b|استرداد|استرجاع|مسترد|مرتجع|عكس\s+(?:عملية|مبلغ|العملية)|عملية\s+عكسية"#)
     static let strongRE = rx(#"\b(?:debited|credited|purchase\s+of|was\s+used|transaction\s+of|withdrawal\s+of|transferred|deposited|paid|spent)\b|تم\s+(?:خصم|إيداع|ايداع|سحب|تحويل|استخدام|شراء|دفع)|عملية\s+شراء|بمبلغ"#)
     static let atRE = rx(#"\b(?:at|@)\s"#)
     static let ladaRE = rx("لدى|عند")
@@ -243,6 +244,7 @@ enum SMSParser {
         var kind: TxKind = .debit
         if let c = creditM, debitM == nil || c.range.location < debitM!.range.location { kind = .credit }
         if debitTxRE.test(s) { kind = .debit }
+        if reversalRE.test(s) { kind = .credit }   // "…transaction of QAR 130 at UBER has been reversed": money coming back
 
         var merchant = ""
         var merchantRange: NSRange? = nil

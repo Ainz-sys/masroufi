@@ -93,7 +93,7 @@ enum L10n {
         "ob6p": ("كل شيء محفوظ على جوالك فقط. لا خوادم، لا حسابات، والتطبيق لا يتصل بالإنترنت. وتقدر تصدّرها CSV متى شئت.", "Everything stays on your phone. No servers, no accounts, and the app never goes online. Export to CSV anytime."),
         "saved": ("تم الحفظ", "Saved"), "testIt": ("اختبر قراءة رسالة", "Test reading a message"),
         "credits": ("الأيقونات: Microsoft Fluent Emoji 3D (MIT) · الخط: Alexandria (OFL)", "Icons: Microsoft Fluent Emoji 3D (MIT) · Font: Alexandria (OFL)"),
-        "version": ("الإصدار 1.3", "Version 1.3"), "wipe": ("حذف كل البيانات", "Delete all data"),
+        "version": ("الإصدار 1.3.1", "Version 1.3.1"), "wipe": ("حذف كل البيانات", "Delete all data"),
         "wipeQ": ("سيُحذف كل شيء نهائياً. اضغط مرة ثانية للتأكيد", "Everything will be deleted. Tap again to confirm"),
         "editCat": ("تعديل الفئة", "Edit category"), "delCat": ("حذف الفئة", "Delete category"), "builtin": ("أساسية", "Built-in"),
         "thisCycle": ("هذه الدورة", "This cycle"), "alert80d": ("تنبيه عند 80٪ من ميزانية الشهر", "Alert at 80% of monthly budget"),

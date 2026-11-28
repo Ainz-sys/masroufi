@@ -87,23 +87,12 @@ jobs:
             xcrun simctl io "$1" screenshot "shots/$5.png" >/dev/null
           }
           prep "$UDID"
-          for s in today txs txs-review review pick plan planned mb fixed analytics analytics-trends analytics-cal settings detail add add-receipt add-paste guide editcat ob3; do
-            shoot "$UDID" "$s" ar wine "$s"
-          done
-          for s in today plan analytics review; do shoot "$UDID" "$s" en navy "en-$s"; done
-          xcrun simctl ui "$UDID" content_size accessibility-extra-extra-extra-large
-          for s in today review plan; do shoot "$UDID" "$s" ar wine "xxxl-$s"; done
-          xcrun simctl ui "$UDID" content_size large
+          for s in today txs refund analytics; do shoot "$UDID" "$s" ar wine "$s"; done
+          for s in txs refund; do shoot "$UDID" "$s" en navy "en-$s"; done
           SMALL=$(python3 .github/pick_sim.py small)
           if [ -n "$SMALL" ]; then
             prep "$SMALL"
-            for s in today txs review plan analytics add settings; do shoot "$SMALL" "$s" ar wine "small-$s"; done
-            xcrun simctl shutdown "$SMALL" || true
-          fi
-          MAX=$(python3 .github/pick_sim.py max)
-          if [ -n "$MAX" ]; then
-            prep "$MAX"
-            for s in today txs plan analytics review add; do shoot "$MAX" "$s" ar wine "max-$s"; done
+            for s in refund txs; do shoot "$SMALL" "$s" ar wine "small-$s"; done
           fi
           xcrun simctl list devices booted > shots/devices.txt
       - name: Publish screenshots on the "shots" branch

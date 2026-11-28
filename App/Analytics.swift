@@ -48,7 +48,7 @@ struct AnalyticsScreen: View {
 
     @ViewBuilder func flow(_ m: Ledger.Month) -> some View {
         let d = store.data
-        let income = d.transactions.filter { $0.kind == .credit && !$0.excluded && $0.date >= m.start && $0.date < m.end }.reduce(0) { $0 + $1.amountHome }
+        let income = d.transactions.filter { $0.kind == .credit && !$0.excluded && !$0.isRefund && $0.date >= m.start && $0.date < m.end }.reduce(0) { $0 + $1.amountHome }
         let base = income > 0 ? income : m.budget
         let left = base - m.spent
         let nodes = Ledger.flow(d, lang: store.lang)
@@ -221,7 +221,7 @@ struct AnalyticsScreen: View {
         let g = Dictionary(grouping: inCycle, by: { $0.merchantKey.isEmpty ? $0.merchant : $0.merchantKey })
         let stats: [MerchantStat] = g.values.map { (txs: [Transaction]) -> MerchantStat in
             MerchantStat(name: (txs.max { $0.date < $1.date } ?? txs[0]).displayName, icon: d.category(txs[0].categoryID).symbol,
-                         amount: txs.reduce(0.0) { $0 + $1.amountHome }, count: txs.count)
+                         amount: txs.reduce(0.0) { $0 + $1.spentHome }, count: txs.count)
         }
         return Array(stats.sorted { $0.amount > $1.amount }.prefix(5))
     }
@@ -293,7 +293,7 @@ struct AnalyticsScreen: View {
         if let day = selectedDay {
             let txs = Ledger.transactions(store.data, on: day)
             SectionHeader(title: store.t("dayTx", ["d": Fmt.short(day, store.lang)])) {
-                Text("\u{200E}" + Fmt.m(txs.filter(\.counts).reduce(0) { $0 + $1.amountHome }) + " " + store.t("cur")).font(.alx(13.5)).foregroundStyle(p.label2)
+                Text("\u{200E}" + Fmt.m(txs.reduce(0) { $0 + $1.spentHome }) + " " + store.t("cur")).font(.alx(13.5)).foregroundStyle(p.label2)
             }
             if txs.isEmpty {
                 Text(store.t("noDayTx")).font(.alx(14)).foregroundStyle(p.label2).padding(.horizontal, 22)
@@ -336,7 +336,7 @@ struct AnalyticsScreen: View {
         let end = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: Date()))!
         let start = cal.date(byAdding: .day, value: -84, to: end)!
         var sums = [Double](repeating: 0, count: 8)
-        for t in store.data.transactions where t.counts && t.date >= start && t.date < end { sums[cal.component(.weekday, from: t.date)] += t.amountHome }
+        for t in store.data.transactions where t.counts && t.date >= start && t.date < end { sums[cal.component(.weekday, from: t.date)] += t.spentHome }
         guard let best = (1...7).max(by: { sums[$0] < sums[$1] }), sums[best] > 0 else { return nil }
         return best
     }

@@ -42,7 +42,7 @@ extension Ledger {
     // MARK: Review queue
 
     static func reviewQueue(_ d: AppData) -> [Transaction] {
-        d.transactions.filter(\.needsReview).sorted { $0.date > $1.date }
+        d.transactions.filter { $0.needsReview && !$0.isRefund }.sorted { $0.date > $1.date }
     }
 
     /// How many earlier transactions from the same merchant ended up in this category (the "why" of a suggestion).
@@ -55,7 +55,7 @@ extension Ledger {
 
     static func spentByCategory(_ d: AppData, from: Date, to: Date) -> [String: Double] {
         var out: [String: Double] = [:]
-        for x in d.transactions where x.counts && x.date >= from && x.date < to { out[x.categoryID, default: 0] += x.amountHome }
+        for x in d.transactions where x.counts && x.date >= from && x.date < to { out[x.categoryID, default: 0] += x.spentHome }
         return out
     }
 
@@ -125,7 +125,7 @@ extension Ledger {
         }
         for mb in d.merchantBudgets {
             let keys = Set(mb.keys)
-            let spent = d.transactions.filter { $0.counts && keys.contains($0.merchantKey) && $0.date >= m.start && $0.date < m.end }.reduce(0) { $0 + $1.amountHome }
+            let spent = d.transactions.filter { $0.counts && keys.contains($0.merchantKey) && $0.date >= m.start && $0.date < m.end }.reduce(0) { $0 + $1.spentHome }
             out.append(BudgetLine(id: mb.id, name: mb.name, icon: mb.icon, color: "#FF7B7B", budget: mb.amount, carried: 0, spent: spent, isMerchant: true))
         }
         return out.sorted { $0.fraction > $1.fraction }
@@ -169,8 +169,8 @@ extension Ledger {
         let histStart = cal.date(byAdding: .day, value: -63, to: end)!
         var week: [String: (Double, Int)] = [:], hist: [String: Double] = [:]
         for x in d.transactions where x.counts && x.date >= histStart && x.date < end {
-            if x.date >= weekStart { let v = week[x.categoryID] ?? (0, 0); week[x.categoryID] = (v.0 + x.amountHome, v.1 + 1) }
-            else { hist[x.categoryID, default: 0] += x.amountHome }
+            if x.date >= weekStart { let v = week[x.categoryID] ?? (0, 0); week[x.categoryID] = (v.0 + x.spentHome, v.1 + 1) }
+            else { hist[x.categoryID, default: 0] += x.spentHome }
         }
         var best: Insight? = nil
         for (id, w) in week {

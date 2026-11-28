@@ -271,7 +271,7 @@ struct TransactionsScreen: View {
 
     var groups: [DayGroup] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        let list = store.data.transactions.filter { matches($0, q) }
+        let list = store.data.transactions.filter { !$0.isRefund && matches($0, q) }
         let g = Dictionary(grouping: list) { Calendar.current.startOfDay(for: $0.date) }
         return g.keys.sorted(by: >).map { DayGroup(id: $0, txs: (g[$0] ?? []).sorted { $0.date > $1.date }) }
     }
@@ -311,7 +311,7 @@ struct TransactionsScreen: View {
                     HStack(alignment: .firstTextBaseline) {
                         Text(dayLabel(g.id, store)).font(.alx(15, .semibold)).foregroundStyle(p.label)
                         Spacer()
-                        Text("\u{200E}" + Fmt.m(g.txs.filter(\.counts).reduce(0) { $0 + $1.amountHome })).font(.alx(13.5)).foregroundStyle(p.label2)
+                        Text("\u{200E}" + Fmt.m(g.txs.reduce(0) { $0 + $1.spentHome })).font(.alx(13.5)).foregroundStyle(p.label2)
                     }
                     .textCase(nil)
                     .padding(.top, 6)

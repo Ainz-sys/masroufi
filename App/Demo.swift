@@ -29,6 +29,8 @@ enum Demo {
 
     static let sms = "Debit transaction of QAR 180.00 from Card ***5 at WOQOD - AL DAYEEN PS    DOHA from Current Account 01***000008 New Balance: QAR 4,318.40 If you suspect this transaction call 44192022"
 
+    static let uberReversal = "Reversal of Debit transaction of QAR 130.00 from Card ***5 at UBER *TRIP HELP.UBER.COM DOHA. Available Balance: QAR 4,448.40"
+
     static var pasteText: String? {
         switch screen {
         case "ob1": return sms
@@ -123,8 +125,17 @@ enum Demo {
         add(today(0.9), 64, "Snoonu", "food", title: names["Snoonu"], reviewed: false, id: "demo-snoonu")
         add(today(0.6), 3, "Karak Al Doha", "coffee", source: .applePay, title: names["Karak Al Doha"], reviewed: false)
         add(today(0.45), 60, "Elegance Salon", "cbarber", source: .applePay, title: names["Elegance Salon"], reviewed: false)
+        // an Uber ride that was cancelled: the reversal comes back two minutes later and is linked to it
+        add(now.addingTimeInterval(-300), 130, "Uber Trip", "transport", title: ar ? "أوبر" : "Uber", id: "demo-uber")
         d.transactions = txs
         d.merchantMap[SMSParser.merchantKey("Snoonu")] = "food"
+        if let p = SMSParser.parse(uberReversal) {
+            var back = Ledger.transaction(from: p, raw: uberReversal, data: d, now: now.addingTimeInterval(-180), live: true)
+            back.id = "demo-uber-back"
+            d.transactions.append(back)
+            Ledger.linkRefund(&d, credit: d.transactions.count - 1, keyword: SMSParser.isRefundText(uberReversal))
+        }
+        d.refundsChecked = true
         return d
     }
 
@@ -142,6 +153,7 @@ enum Demo {
         case "review": nav.path = [.review]
         case "pick": nav.path = [.review]; nav.sheet = .pickCategory("demo-snoonu", review: true)
         case "detail": nav.path = [.detail("demo-woqod")]
+        case "refund": nav.path = [.detail("demo-uber")]
         case "add", "add-receipt": nav.sheet = .add(paste: false)
         case "add-paste": nav.sheet = .add(paste: true)
         case "newcat": nav.sheet = .newCategory(forTx: nil)

@@ -96,5 +96,18 @@ extension L10n {
         "ap5": ("رسالة البنك اللي توصل بعدها تندمج مع نفس العملية تلقائياً.", "The bank text that follows is merged into the same transaction automatically."),
         "apLast": ("آخر دفعة Apple Pay", "Last Apple Pay payment"),
         "version13": ("الإصدار 1.3", "Version 1.3"),
+        // refunds (1.3.1)
+        "nRefundT": ("رجع لك {a} ر.ق", "QAR {a} came back"),
+        "nRefundB": ("استرجاع من {m} — شلناها من مصروفك", "Refund from {m} — taken off your spending"),
+        "refundedFull": ("مسترجع", "Refunded"), "refundedPart": ("رجع {n}", "{n} back"),
+        "refundT": ("رجع المبلغ ✓", "Money came back ✓"), "refundPartT": ("رجع جزء من المبلغ ✓", "Part of it came back ✓"),
+        "refundP": ("رجع {a} ر.ق {d} — ما ينحسب من مصروفك.", "QAR {a} came back {d} — it doesn’t count as spending."),
+        "refundPartP": ("رجع {a} ر.ق {d} — ينحسب عليك {n} ر.ق بس.", "QAR {a} came back {d} — only QAR {n} counts."),
+        "refundMsg": ("رسالة الاسترجاع", "Refund message"),
+        "notRefund": ("مو استرجاع؟ افصلها", "Not a refund? Separate it"),
+        "isRefundQ": ("هذي فلوس راجعة من «{m}»؟", "Is this money back from “{m}”?"),
+        "isRefundP": ("نفس المبلغ دفعته {d}. اربطها وما تنحسب دخل ولا مصروف.", "You paid the same amount {d}. Link them and it counts as neither income nor spending."),
+        "linkRefund": ("اربطها كاسترجاع", "Link as a refund"),
+        "refundOfT": ("استرجاع لعملية", "Refund for"),
     ]
 }
